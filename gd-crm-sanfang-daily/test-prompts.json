@@ -1,19 +1,118 @@
 {
   "skill": "gd-crm-sanfang-daily",
-  "version": "1.1.0",
+  "version": "1.3.0",
   "test_cases": [
-    {"id": "should-trigger-05", "type": "should_trigger", "prompt": "定时任务触发：按 Skill 跑今天的三方营销日报", "expected_behavior": "加载 gd-crm-sanfang-daily 后严格按《每日定时任务执行 SOP》跑完 ①~⑧：先测 TCP 80 → 一键脚本 → 检查 analyze 累计行（缺则判假成功报失败）→ 从 sanfang.json 现算数字 → verify_days/高亮/图表/HTML 边界校验 → 按固定模板汇报 → 追加自动化 memory 摘要；不带参数、不手工指定窗口", "notes": "定时任务唯一入口，2026-11-07 起生效"},
-    {"id": "should-trigger-01", "type": "should_trigger", "prompt": "跑一下今天的三方营销日报", "expected_behavior": "用托管 python 跑 run_daily.py（不带参数），汇报实际统计区间、区间合计与最新一天四项核心数、异常与一句话结论", "notes": "最典型触发：每日例行"},
-    {"id": "should-trigger-02", "type": "should_trigger", "prompt": "报告里的成交人数跟我在 CRM 看到的不一样，查一下", "expected_behavior": "先拿用户的 CRM 导出跑 verify_against_crm_export.py 逐媒介比对，检查是否误用了媒介类型汇总行、是否叠加了存档", "notes": "用户验收标准：数字要和当天看到的一样"},
-    {"id": "should-trigger-03", "type": "should_trigger", "prompt": "把 10 月的报告重新出一份", "expected_behavior": "走月报重出流程：probe_oct 导上月区间 → 备份当月四件套 → 写上月 window → 重跑 baseline/analyze → gen_oct 独立文件名 → 恢复当月四件套并复核 md5", "notes": "重出上月，不能覆盖日报主文件"},
-    {"id": "should-trigger-04", "type": "should_trigger", "prompt": "11 月了，日报窗口怎么只剩一天", "expected_behavior": "解释月初按天归并、整月区间数据仍可导出；检查报告里有没有残留上个月的写死文案与常量，按数据现算", "notes": "跨月常量暴露"},
-    {"id": "should-not-trigger-01", "type": "should_not_trigger", "prompt": "用云客 CRM 拉一份团队周报", "expected_behavior": "不调用本 skill，走 yunke-crm-periodic-report（外部 SaaS，omni-cli 命令族）", "notes": "诱饵：名称近似但是另一套系统"},
-    {"id": "should-not-trigger-02", "type": "should_not_trigger", "prompt": "帮我填这周的周总结", "expected_behavior": "不调用本 skill，走 weekly-report-fill（消费 sanfang.json）", "notes": "诱饵：同一数据源但下游交付物不同"},
-    {"id": "should-not-trigger-03", "type": "should_not_trigger", "prompt": "跑一下网电咨询报表", "expected_behavior": "不调用本 skill，走 wangdian-monthly-report（4 张业务源表 + 医院 Excel 模板）", "notes": "诱饵：同为报表但另一套流程"},
-    {"id": "edge-01", "type": "edge_case", "prompt": "脚本报错了但 HTML 报告还在，能用吗", "expected_behavior": "判定为假成功：检查 analyze 有没有打印累计行、四步退出码是否全绿；如实报失败，不沿用上一版报告冒充新数据", "notes": "最关键边界：空日 KeyError 后 gen_report 用旧 json 出报告"},
-    {"id": "edge-02", "type": "edge_case", "prompt": "10 月 1 号到 19 号查不到，用本地存档把月初补上吧", "expected_behavior": "明确拒绝：CRM 已把月初归并到 10-20/10-21，叠加会重复计算（真实被用户否过的 308 人来院）；合计只取区间报表", "notes": "边界：用户要求补历史"},
-    {"id": "edge-03", "type": "edge_case", "prompt": "逐日相加和合计差了 21 人来院，把明细改平", "expected_behavior": "不修改明细：差额来自按人去重 + CRM 后改数，只写进 footer 对账；差值超过 20 条才去查是否重挂/补录", "notes": "边界：差异只解释不修补"},
-    {"id": "edge-04", "type": "edge_case", "prompt": "给报告加个联动高亮，鼠标停在成交那组就整组亮起来", "expected_behavior": "先确认高亮范围再动手；现行口径是同一行同一档恰好 2 格（来院该档 + 成交该档），不是整组；改完跑 check_group_hl.py 20/20", "notes": "边界：需求歧义，用户曾纠正过一次"},
-    {"id": "edge-05", "type": "edge_case", "prompt": "内网不通，先按昨天的数出个报告顶一下", "expected_behavior": "拒绝：不生成占位数字、不沿用上一版；如实报告失败原因与报错信息", "notes": "边界：硬性禁令"}
+    {
+      "id": "should-trigger-05",
+      "type": "should_trigger",
+      "prompt": "定时任务触发：按 Skill 跑今天的三方营销日报",
+      "expected_behavior": "加载 gd-crm-sanfang-daily 后严格按《每日定时任务执行 SOP》跑完 ①~⑧：先测 TCP 80 → 一键脚本 → 检查 analyze 累计行（缺则判假成功报失败）→ 从 sanfang.json 现算数字 → verify_days/高亮/图表/HTML 边界校验 → 按固定模板汇报 → 追加自动化 memory 摘要；不带参数、不手工指定窗口",
+      "notes": "定时任务唯一入口，2026-11-07 起生效"
+    },
+    {
+      "id": "should-trigger-01",
+      "type": "should_trigger",
+      "prompt": "跑一下今天的三方营销日报",
+      "expected_behavior": "用托管 python 跑 run_daily.py（不带参数），汇报实际统计区间、区间合计与最新一天四项核心数、异常与一句话结论",
+      "notes": "最典型触发：每日例行"
+    },
+    {
+      "id": "should-trigger-02",
+      "type": "should_trigger",
+      "prompt": "报告里的成交人数跟我在 CRM 看到的不一样，查一下",
+      "expected_behavior": "先拿用户的 CRM 导出跑 verify_against_crm_export.py 逐媒介比对，检查是否误用了媒介类型汇总行、是否叠加了存档",
+      "notes": "用户验收标准：数字要和当天看到的一样"
+    },
+    {
+      "id": "should-trigger-03",
+      "type": "should_trigger",
+      "prompt": "把 10 月的报告重新出一份",
+      "expected_behavior": "走月报重出流程：probe_oct 导上月区间 → 备份当月四件套 → 写上月 window → 重跑 baseline/analyze → gen_oct 独立文件名 → 恢复当月四件套并复核 md5",
+      "notes": "重出上月，不能覆盖日报主文件"
+    },
+    {
+      "id": "should-trigger-04",
+      "type": "should_trigger",
+      "prompt": "11 月了，日报窗口怎么只剩一天",
+      "expected_behavior": "解释月初按天归并、整月区间数据仍可导出；检查报告里有没有残留上个月的写死文案与常量，按数据现算",
+      "notes": "跨月常量暴露"
+    },
+    {
+      "id": "should-not-trigger-01",
+      "type": "should_not_trigger",
+      "prompt": "用云客 CRM 拉一份团队周报",
+      "expected_behavior": "不调用本 skill，走 yunke-crm-periodic-report（外部 SaaS，omni-cli 命令族）",
+      "notes": "诱饵：名称近似但是另一套系统"
+    },
+    {
+      "id": "should-not-trigger-02",
+      "type": "should_not_trigger",
+      "prompt": "帮我填这周的周总结",
+      "expected_behavior": "不调用本 skill，走 weekly-report-fill（消费 sanfang.json）",
+      "notes": "诱饵：同一数据源但下游交付物不同"
+    },
+    {
+      "id": "should-not-trigger-03",
+      "type": "should_not_trigger",
+      "prompt": "跑一下网电咨询报表",
+      "expected_behavior": "不调用本 skill，走 wangdian-monthly-report（4 张业务源表 + 医院 Excel 模板）",
+      "notes": "诱饵：同为报表但另一套流程"
+    },
+    {
+      "id": "edge-01",
+      "type": "edge_case",
+      "prompt": "脚本报错了但 HTML 报告还在，能用吗",
+      "expected_behavior": "判定为假成功：检查 analyze 有没有打印累计行、四步退出码是否全绿；如实报失败，不沿用上一版报告冒充新数据",
+      "notes": "最关键边界：空日 KeyError 后 gen_report 用旧 json 出报告"
+    },
+    {
+      "id": "edge-02",
+      "type": "edge_case",
+      "prompt": "10 月 1 号到 19 号查不到，用本地存档把月初补上吧",
+      "expected_behavior": "明确拒绝：CRM 已把月初归并到 10-20/10-21，叠加会重复计算（真实被用户否过的 308 人来院）；合计只取区间报表",
+      "notes": "边界：用户要求补历史"
+    },
+    {
+      "id": "edge-03",
+      "type": "edge_case",
+      "prompt": "逐日相加和合计差了 21 人来院，把明细改平",
+      "expected_behavior": "不修改明细：差额来自按人去重 + CRM 后改数，只写进 footer 对账；差值超过 20 条才去查是否重挂/补录",
+      "notes": "边界：差异只解释不修补"
+    },
+    {
+      "id": "edge-04",
+      "type": "edge_case",
+      "prompt": "给报告加个联动高亮，鼠标停在成交那组就整组亮起来",
+      "expected_behavior": "先确认高亮范围再动手；现行口径是同一行同一档恰好 2 格（来院该档 + 成交该档），不是整组；改完跑 check_group_hl.py 20/20",
+      "notes": "边界：需求歧义，用户曾纠正过一次"
+    },
+    {
+      "id": "edge-05",
+      "type": "edge_case",
+      "prompt": "内网不通，先按昨天的数出个报告顶一下",
+      "expected_behavior": "拒绝：不生成占位数字、不沿用上一版；如实报告失败原因与报错信息",
+      "notes": "边界：硬性禁令"
+    },
+    {
+      "id": "should-trigger-06",
+      "type": "should_trigger",
+      "prompt": "来院和成交的结论跟速览要分新客和老客",
+      "expected_behavior": "改 02 速览四张卡（昨日/区间 的来院、成交）加 `新客 X · 老客 Y` 拆分行，核心结论首条带拆分并单列一条「新老客结构」（来院→成交转化分新老、新客再拆首次/二次、金额分新老）；数字全部从 window_totals 现算，不写常量",
+      "notes": "2026-11-07 用户需求，交付门禁第 10 条"
+    },
+    {
+      "id": "should-trigger-07",
+      "type": "should_trigger",
+      "prompt": "表格下面要有一个合计数量，现在只看到每个媒介的，没有总的合计",
+      "expected_behavior": "4 张主表都补 tfoot：03/04 TOP20 表给「本表 TOP20 小计 + 全部 N 个媒介合计」两行，05 咨询师表与 08 全部媒介表各一行「合计」；08 表在 .scroll 里需 sticky 吸底；合计取 window_totals 并确认与逐行相加对得上",
+      "notes": "2026-11-07 用户需求，交付门禁第 9 条"
+    },
+    {
+      "id": "should-trigger-08",
+      "type": "should_trigger",
+      "prompt": "把 10 月的月报也更新成新版式（要带新老客拆分和合计行）",
+      "expected_behavior": "月报复用日报模板：优先用 data/archive_YYYY-MM/sanfang.json 跑 gen_month.py 2026-10，输出独立文件名不覆盖日报；确认速览卡有新客/老客拆分、4 张表有合计行、五档相加对不上时有 id_note 解释（按人去重）",
+      "notes": "2026-11-07 确认：gen_month.py 复用 gen_report_sanfang.py，改一处两边生效"
+    }
   ]
 }
