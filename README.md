@@ -11,7 +11,7 @@
 | 文件 | 用途 |
 |---|---|
 | `SKILL.md` | 主说明（取数、口径、SOP、门禁、已知坑、硬性禁令） |
-| `test-prompts.json` | 15 条触发 / 边界测试用例 |
+| `test-prompts.json` | 13 条触发 / 边界测试用例 |
 
 ## 安装
 
@@ -37,9 +37,9 @@ Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`。目录名即 skill 名
 
 不是「答不上来」，而是这些场景有更专业的入口。
 
-## 测试用例（全部 15 条，来自 `test-prompts.json`）
+## 测试用例（全部 13 条，来自 `test-prompts.json`）
 
-`test-prompts.json` 未声明 `minimum_pass_rate`，建议按 **15/15 全通过**验收。
+`test-prompts.json` 未声明 `minimum_pass_rate`，建议按 **13/13 全通过**验收。
 
 ### 应触发（5）
 
