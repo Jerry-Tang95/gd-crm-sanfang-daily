@@ -2,8 +2,10 @@
 
 内网 GD-CRM「三方营销」媒介日报的**执行说明书**：一键脚本取数 → 区间报表唯一真值 → 三方聚合 → 单文件 HTML 趋势报告，附口径核对与「假成功」识别。
 
-> ⚠️ **本仓库只有说明书，不含脚本。** 全部脚本的唯一真源在项目工作区 `gd-crm-媒介日报\`，**禁止复制到别处跑**；运行还需要内网 GD-CRM 可达 + 同目录 `config.local.json` 凭据 + 托管 Python / Playwright。脱离这套环境，clone 下来也跑不起来。仓库公开主要用于备份、跨机迁移与方法论留档。
-> 另：说明书里含公司内网地址、真实历史业绩数字与内部账号 ID，公开即对外可见。
+> ✅ **clone 即可部署**：`runtime/` 里带 14 个可移植脚本 + 图表库，新电脑装完依赖、填好凭据就能出报告。**完整部署步骤见 [`runtime/DEPLOY.md`](gd-crm-sanfang-daily/runtime/DEPLOY.md)**。
+> ⚠️ 两个硬前提：**新电脑必须能连公司内网 `192.168.16.138`**（缺 VPN 就出不了数，别去改代码）；**账号密码不在仓库里**，要自己把 `config.example.json` 复制成 `config.local.json` 填写。
+> 生产真源仍是项目工作区 `gd-crm-媒介日报\`，`runtime/` 是发布副本，方向单向；源目录改了逻辑跑 `tools/sync_runtime.py` 重新同步，别手工两边改。
+> 另：说明书与脚本含公司内网地址、接口结构、真实历史业绩数字与内部账号 ID，公开即对外可见。
 
 ---
 
@@ -105,20 +107,50 @@
 
 ---
 
-## 仓库文件
+## 仓库结构
 
-| 文件 | 用途 |
-|---|---|
-| `SKILL.md` | 主说明（取数、口径、SOP、门禁、已知坑、硬性禁令）—— **全部逻辑的唯一真源** |
-| `test-prompts.json` | 13 条触发 / 边界测试用例 |
+```text
+gd-crm-sanfang-daily/                  ← 仓库根
+├── README.md                          ← 你正在看的这份
+├── .gitignore                         ← 排除凭据、数据、留档
+└── gd-crm-sanfang-daily/              ← Skill 包（可整个拷进 skills 目录）
+    ├── SKILL.md                       ← 执行逻辑唯一真源（口径 / SOP / 门禁 / 已知坑）
+    ├── test-prompts.json              ← 13 条触发 / 边界测试用例
+    ├── tools/sync_runtime.py          ← 源机器用：把生产脚本同步成可移植副本
+    └── runtime/                       ← 可部署的运行时
+        ├── DEPLOY.md                  ← 新电脑部署完整步骤
+        ├── run_daily.py               ← 一键入口
+        ├── ... 共 14 个 .py           ← 六步流水线 + 4 个校验 + 月报重出
+        ├── assets/echarts.min.js      ← 图表库（随仓库分发，约 1 MB）
+        ├── config.example.json        ← 凭据模板
+        └── requirements.txt           ← playwright + xlrd
+```
 
-## 安装
+故意**没有**进仓库的：`config.local.json`（账号密码）、`data/`（原始 xls 与中间 json，含真实业绩）、`history/`（历史报告留档）、`*.html` / `*.xls`（生成物）、`probe*.py` 与备份副本（一次性调试脚本）。跑一次脚本，前面几类就会自动产生。
+
+## 新电脑部署（clone 即用）
+
+```bash
+git clone https://github.com/Jerry-Tang95/gd-crm-sanfang-daily.git
+cd gd-crm-sanfang-daily/gd-crm-sanfang-daily/runtime
+
+python -m pip install -r requirements.txt
+python -m playwright install chromium
+copy config.example.json config.local.json   # Windows；填 username / password
+python run_daily.py                          # 不带参数 = 昨天，约 1~8 分钟
+```
+
+产出同目录的 `三方营销媒介分析报告.html`。**先确认能连内网 `192.168.16.138:80`**，自检命令、跑完的 4 个校验脚本、判成功（防假成功）与定时任务重建说明全在 [`runtime/DEPLOY.md`](gd-crm-sanfang-daily/runtime/DEPLOY.md)。
+
+脚本已做 4 类可移植改造：解释器用 `sys.executable`、浏览器默认用 Playwright 自带（可用 `CRM_CHROME` 指定）、内网地址可用 `CRM_BASE_URL` 覆盖、图表库改读 `runtime/assets/`。**源目录一个字没动**，本机每天 08:00 的定时任务不受影响。
+
+只装 Skill、暂时不部署脚本时：
 
 ```bash
 cp -r gd-crm-sanfang-daily ~/.workbuddy/skills/
 ```
 
-Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`。目录名即 skill 名，别改。装完还要有配套的项目工作区与内网凭据，否则 skill 只会告诉你「缺什么」，不会自己造数据。
+Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`，目录名即 skill 名，别改。但这时 skill 只会告诉你「缺什么」，不会自己造数据 —— 要出数仍得部署 `runtime/`。
 
 ## 30 秒验证
 
@@ -177,3 +209,5 @@ Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`。目录名即 skill 名
 ## 版本
 
 v1.1 / 2026-11-07 · 资产账本 SK-096 · 本 skill 是定时任务执行逻辑的**唯一真源**，改口径 / 汇报格式只改 `SKILL.md` 一处。
+
+`runtime/` 于 2026-11-07 加入：从生产项目目录同步 14 个脚本并打 4 类可移植补丁，源目录未改动。以后源脚本改了，跑 `python tools/sync_runtime.py --src "<生产项目目录>"` 重新生成，再重跑发布命令即可。
