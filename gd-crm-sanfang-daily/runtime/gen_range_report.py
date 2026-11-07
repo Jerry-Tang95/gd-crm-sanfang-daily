@@ -61,13 +61,22 @@ def main():
     src_list = sorted([{"name": k, **v} for k, v in src.items()], key=lambda x: -x["建档量"])
     emp_list = sorted([{"name": k, **v} for k, v in emp.items()], key=lambda x: -x["成交总金额"])
 
-    def kpi(k, v, sub=""):
-        return f'<div class="kpi"><div class="k">{k}</div><div class="v">{v}</div><div class="d">{sub}</div></div>'
+    def kpi(k, v, sub="", split=""):
+        sp = f'<div class="sp">{split}</div>' if split else ""
+        return (f'<div class="kpi"><div class="k">{k}</div><div class="v">{v}</div>'
+                f'{sp}<div class="d">{sub}</div></div>')
+
+    def sp_cell(nc, ol):
+        """新客 / 老客 拆分（与日报同款：蓝＝新客、橙＝老客）"""
+        return (f'<span class="na">新客 <b>{nc:,.0f}</b></span><span class="sep">·</span>'
+                f'<span class="ol">老客 <b>{ol:,.0f}</b></span>')
 
     kpis = "".join([
         kpi("录单量", f"{tot['建档量']:,.0f}", f"{n} 天合计"),
-        kpi("来院人数", f"{tot['来院_总人数']:,.0f}", f"来院率 {visit_conv:.1f}%"),
-        kpi("成交人数", f"{tot['成交_总人数']:,.0f}", f"转化率 {conv:.2f}%"),
+        kpi("来院人数", f"{tot['来院_总人数']:,.0f}", f"来院率 {visit_conv:.1f}%",
+            split=sp_cell(tot["来院_新客"], tot["来院_老客"])),
+        kpi("成交人数", f"{tot['成交_总人数']:,.0f}", f"转化率 {conv:.2f}%",
+            split=sp_cell(tot["成交_新客"], tot["成交_老客"])),
         kpi("成交金额", f"{tot['成交总金额']:,.0f} 元", f"客单价 {aov/10000:.1f} 万"),
     ])
 
@@ -192,6 +201,9 @@ h2 .n{display:inline-flex;width:25px;height:25px;border-radius:9px;background:va
 .kpi .k{font-size:12.5px;color:var(--sub);margin-bottom:5px}
 .kpi .v{font-size:24px;font-weight:700;letter-spacing:-.4px}
 .kpi .d{font-size:12.5px;color:var(--sub);margin-top:4px}
+.kpi .sp{font-size:12.8px;margin-top:5px;color:var(--sub);letter-spacing:.2px}
+.kpi .sp .na b{color:#0a7ea4}.kpi .sp .ol b{color:#9a4c1a}
+.kpi .sp .sep{color:#c3c9d9;margin:0 8px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--sh);margin-bottom:15px}
 .xwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
 table{border-collapse:collapse;font-size:13px;min-width:100%}
