@@ -5,9 +5,10 @@ import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "data", "analysis", "sanfang.json")
+# 默认读当月 sanfang.json、写日报主文件；月报重出时用环境变量指到归档 json / 独立文件名
+SRC = os.environ.get("SANFANG_SRC") or os.path.join(HERE, "data", "analysis", "sanfang.json")
 ECHARTS = os.path.join(HERE, "assets", "echarts.min.js")  # [portable] 图表库随仓库分发
-OUT_HTML = os.path.join(HERE, "三方营销媒介分析报告.html")
+OUT_HTML = os.environ.get("REPORT_OUT") or os.path.join(HERE, "三方营销媒介分析报告.html")
 
 
 
@@ -31,7 +32,10 @@ def main():
         return f"{v:+.0f}%"
 
     # 合计以 CRM 区间报表为准（window_totals）；没有就用逐日累加兜底
-    _keys = ["建档量", "预约量", "一级预约量", "来院_总人数", "成交_总人数", "成交总金额"]
+    _keys = ["建档量", "预约量", "一级预约量",
+             "来院_新客首次", "来院_新客二次", "来院_新客", "来院_老客", "来院_总人数",
+             "成交_新客首次", "成交_新客二次", "成交_新客", "成交_老客", "成交_总人数",
+             "金额_新客", "金额_老客", "成交总金额"]
     if A.get("window_totals"):
         tot = {f: (A["window_totals"].get(f) or 0) for f in _keys}
     else:
@@ -62,10 +66,30 @@ def main():
 
     _overall = ("录单海量、转化偏低" if conv < 2.5
                 else ("转化处于常态区间" if conv < 4 else "转化好于常态"))
+    # 新老客拆分（全部现算，禁止写死）
+    _v_n, _v_o = tot["来院_新客"], tot["来院_老客"]
+    _d_n, _d_o = tot["成交_新客"], tot["成交_老客"]
+    _v_t = tot["来院_总人数"]
+    _m_n, _m_o = tot["金额_新客"], tot["金额_老客"]
+    _n_share = _v_n / _v_t * 100 if _v_t else 0
+    _n_conv = _d_n / _v_n * 100 if _v_n else 0
+    _o_conv = _d_o / _v_o * 100 if _v_o else 0
+    _m_n_share = _m_n / tot["成交总金额"] * 100 if tot["成交总金额"] else 0
     ins = [
         f'<b>整体：三方营销「{_overall}」。</b>{_ndays} 天录单 <b>{tot["建档量"]:,.0f}</b> 个、'
-        f'来院 <b>{tot["来院_总人数"]:,.0f}</b> 人，成交 <b>{tot["成交_总人数"]:,.0f}</b> 人（区间内按人去重），'
+        f'来院 <b>{_v_t:,.0f}</b> 人（新客 {_v_n:,.0f} / 老客 {_v_o:,.0f}），'
+        f'成交 <b>{tot["成交_总人数"]:,.0f}</b> 人（新客 {_d_n:,.0f} / 老客 {_d_o:,.0f}，区间内按人去重），'
         f'转化率 <b>{conv:.2f}%</b>，业绩 {tot["成交总金额"]:,.0f} 元，客单价 {aov/10000:.1f} 万。',
+        f'<b>新老客结构：</b>来院以{"新客" if _n_share >= 50 else "老客"}为主'
+        f'（新客 {_v_n:,.0f} 人占 {_n_share:.0f}% / 老客 {_v_o:,.0f} 人）；'
+        f'来院→成交 转化 新客 <b>{_n_conv:.1f}%</b>、老客 <b>{_o_conv:.1f}%</b>。'
+        f'新客再拆两层：首次到院 {tot["来院_新客首次"]:,.0f} 人仅成交 {tot["成交_新客首次"]:,.0f} 人，'
+        f'二次到院 {tot["来院_新客二次"]:,.0f} 人成交 {tot["成交_新客二次"]:,.0f} 人。'
+        f'按金额：新客 {_m_n:,.0f} 元（{_m_n_share:.0f}%）、老客 {_m_o:,.0f} 元。'
+        + ('<span class="warn">新客首次 0 人成交 —— 首诊当天下单几乎为零，业绩靠二次跟进与老客复购。</span>'
+           if tot["成交_新客首次"] == 0 else
+           ('<span class="warn">老客到院转化明显高于新客 —— 复购比首诊更容易出单。</span>'
+            if _o_conv > _n_conv * 1.5 else '')),
         f'<b>录单前三名基本不产业绩。</b>{"、".join(s["name"] for s in top3_build)} 合计录单 {t3_b:,.0f} 个（占三方营销 {t3_b/tot["建档量"]*100:.0f}%），'
         f'却只成交 {t3_d:,.0f} 人。<span class="warn">纯流量、无线索质量感 —— 建议核实这几家的线索真实性与重复度。</span>',
         f'<b>业绩靠「小而精」的几家撑起来。</b>{"、".join(f"{s["name"]}（{s["成交总金额"]/10000:.1f}万）" for s in top3_money)} '
@@ -209,21 +233,35 @@ def main():
            if dd.get("day") else ''))
 
     # ---- KPI ----
-    def kpi(label, val, delta="", unit=""):
+    def kpi(label, val, delta="", unit="", split=""):
         d = f'<div class="d">{delta}</div>' if delta else ""
-        return f'<div class="kpi"><div class="k">{label}</div><div class="v">{val}{unit}</div>{d}</div>'
+        s = f'<div class="sp">{split}</div>' if split else ""
+        return f'<div class="kpi"><div class="k">{label}</div><div class="v">{val}{unit}</div>{s}{d}</div>'
 
+    def sp_cell(nc, ol):
+        """新客 / 老客 拆分（速览卡专用）"""
+        return (f'<span class="na">新客 <b>{nc:,.0f}</b></span>'
+                f'<span class="sep">·</span>'
+                f'<span class="ol">老客 <b>{ol:,.0f}</b></span>')
+
+    # 日报最新日通常是「昨天」；月报/区间报告的最新日不是昨天 → 改叫「最新日」，避免读着别扭
+    _yest = (_dt.date.today() - _dt.timedelta(days=1)).isoformat()
+    _dw = "昨日" if latest == _yest else "最新日"
     _dlabel = (lambda lbl: f'环比 {lbl}') if prev else (lambda lbl: '新周期首日 · 无可比日')
     kpi_now = "".join([
-        kpi("昨日录单", f"{g(latest,'建档量'):,.0f}", _dlabel(pct(g(latest,"建档量"),g(prev,"建档量")))),
-        kpi("昨日来院", f"{g(latest,'来院_总人数'):,.0f}", _dlabel(pct(g(latest,"来院_总人数"),g(prev,"来院_总人数")))),
-        kpi("昨日成交", f"{g(latest,'成交_总人数'):,.0f}", _dlabel(pct(g(latest,"成交_总人数"),g(prev,"成交_总人数")))),
-        kpi("昨日业绩", f"{g(latest,'成交总金额'):,.0f}", _dlabel(pct(g(latest,"成交总金额"),g(prev,"成交总金额"))), " 元"),
+        kpi(f"{_dw}录单", f"{g(latest,'建档量'):,.0f}", _dlabel(pct(g(latest,"建档量"),g(prev,"建档量")))),
+        kpi(f"{_dw}来院", f"{g(latest,'来院_总人数'):,.0f}", _dlabel(pct(g(latest,"来院_总人数"),g(prev,"来院_总人数"))),
+            split=sp_cell(g(latest,"来院_新客"), g(latest,"来院_老客"))),
+        kpi(f"{_dw}成交", f"{g(latest,'成交_总人数'):,.0f}", _dlabel(pct(g(latest,"成交_总人数"),g(prev,"成交_总人数"))),
+            split=sp_cell(g(latest,"成交_新客"), g(latest,"成交_老客"))),
+        kpi(f"{_dw}业绩", f"{g(latest,'成交总金额'):,.0f}", _dlabel(pct(g(latest,"成交总金额"),g(prev,"成交总金额"))), " 元"),
     ])
     kpi_tot = "".join([
         kpi(f"{_ndays}天录单", f"{tot['建档量']:,.0f}"),
-        kpi(f"{_ndays}天来院", f"{tot['来院_总人数']:,.0f}", "按人去重"),
-        kpi(f"{_ndays}天成交", f"{tot['成交_总人数']:,.0f}", "按人去重"),
+        kpi(f"{_ndays}天来院", f"{tot['来院_总人数']:,.0f}", "按人去重",
+            split=sp_cell(tot["来院_新客"], tot["来院_老客"])),
+        kpi(f"{_ndays}天成交", f"{tot['成交_总人数']:,.0f}", "按人去重",
+            split=sp_cell(tot["成交_新客"], tot["成交_老客"])),
         kpi(f"{_ndays}天业绩", f"{tot['成交总金额']/10000:,.1f} 万", f"转化率 {conv:.2f}% · 客单价 {aov/10000:.1f}万"),
     ])
 
@@ -265,6 +303,74 @@ def main():
         f"<td class='tot'>{s['成交总金额']:,.0f}</td></tr>"
         for s in srcs_by_build)
 
+    # ---- 表格合计行（tfoot）----
+    _FTK = ["建档量", "来院_新客首次", "来院_新客二次", "来院_新客", "来院_老客", "来院_总人数",
+            "成交_新客首次", "成交_新客二次", "成交_新客", "成交_老客", "成交_总人数", "成交总金额"]
+
+    def ft_tds(x):
+        v = [x['来院_新客首次'], x['来院_新客二次'], x['来院_新客'], x['来院_老客'], x['来院_总人数']]
+        d = [x['成交_新客首次'], x['成交_新客二次'], x['成交_新客'], x['成交_老客'], x['成交_总人数']]
+        cells = lambda vals, grp: "".join(
+            f"<td class='ft' data-col='{i}' data-grp='{grp}'>{val:,.0f}</td>" for i, val in enumerate(vals))
+        return cells(v, 'v') + cells(d, 'd')
+
+    def sum_rows(rows):
+        return {k: sum((r.get(k) or 0) for r in rows) for k in _FTK}
+
+    def foot_row(label, x, sub=False, colspan=2):
+        cls = ' class="sub"' if sub else ''
+        return (f'<tr{cls}>'
+                f'<td class="ft" colspan="{colspan}" style="text-align:left">{label}</td>'
+                f'<td class="ft">{x["建档量"]:,.0f}</td>{ft_tds(x)}'
+                f'<td class="ft">{x["成交总金额"]:,.0f}</td></tr>')
+
+    def ft_note(x):
+        """表内逐行相加与区间报表合计不一致时给出说明（设计上应完全一致）"""
+        dv, dvv = x["建档量"] - tot["建档量"], x["来院_总人数"] - tot["来院_总人数"]
+        dd, dm = x["成交_总人数"] - tot["成交_总人数"], x["成交总金额"] - tot["成交总金额"]
+        if all(abs(y) < 0.5 for y in (dv, dvv, dd, dm)):
+            return ''
+        return (f'<div class="ft-note">* 本表逐行相加与区间报表合计有差（建档 {dv:+,.0f} / 来院 {dvv:+,.0f} / '
+                f'成交 {dd:+,.0f} / 金额 {dm:+,.0f}），属 CRM 按人去重或事后改数，报告合计以区间报表为准。</div>')
+
+    _top_b, _top_m = srcs_by_build[:20], srcs[:20]
+    _sb, _sm, _se, _sa = sum_rows(_top_b), sum_rows(_top_m), sum_rows(emps), sum_rows(srcs_by_build)
+    foot_build = ('<tfoot>'
+                  + foot_row(f'本表 TOP{len(_top_b)} 小计', _sb, sub=True)
+                  + foot_row(f'全部 {len(srcs)} 个媒介合计', tot) + '</tfoot>')
+    foot_money = ('<tfoot>'
+                  + foot_row(f'本表 TOP{len(_top_m)} 小计', _sm, sub=True)
+                  + foot_row(f'全部 {len(srcs)} 个媒介合计', tot) + '</tfoot>')
+    foot_emp = '<tfoot>' + foot_row(f'合计（{len(emps)} 位咨询师）', tot) + '</tfoot>'
+    foot_all = '<tfoot>' + foot_row(f'合计（{len(srcs)} 个媒介）', tot, colspan=1) + '</tfoot>'
+    foot_note_emp, foot_note_all = ft_note(_se), ft_note(_sa)
+
+    # 五档恒等式体检：跨天按人去重后，「新客首次+新客二次」可能大于「新客」，
+    # 「新客+老客」也可能与「总人数」差 1~2 人（同一人跨天以不同身份出现只计一次）。
+    _idv1 = (tot["来院_新客首次"] + tot["来院_新客二次"]) - tot["来院_新客"]
+    _idv2 = (tot["来院_新客"] + tot["来院_老客"]) - tot["来院_总人数"]
+    _idd1 = (tot["成交_新客首次"] + tot["成交_新客二次"]) - tot["成交_新客"]
+    _idd2 = (tot["成交_新客"] + tot["成交_老客"]) - tot["成交_总人数"]
+    if any(abs(x) >= 0.5 for x in (_idv1, _idv2, _idd1, _idd2)):
+        _id_parts = []
+        if abs(_idv1) >= 0.5 or abs(_idv2) >= 0.5:
+            _id_parts.append(f'来院：首次 {tot["来院_新客首次"]:,.0f} + 二次 {tot["来院_新客二次"]:,.0f} '
+                             f'= {tot["来院_新客首次"]+tot["来院_新客二次"]:,.0f}，但「新客」列 {tot["来院_新客"]:,.0f}；'
+                             f'新客 {tot["来院_新客"]:,.0f} + 老客 {tot["来院_老客"]:,.0f} '
+                             f'= {tot["来院_新客"]+tot["来院_老客"]:,.0f}，总人数 {tot["来院_总人数"]:,.0f}')
+        if abs(_idd1) >= 0.5 or abs(_idd2) >= 0.5:
+            _id_parts.append(f'成交：首次 {tot["成交_新客首次"]:,.0f} + 二次 {tot["成交_新客二次"]:,.0f} '
+                             f'= {tot["成交_新客首次"]+tot["成交_新客二次"]:,.0f}，但「新客」列 {tot["成交_新客"]:,.0f}；'
+                             f'新客 {tot["成交_新客"]:,.0f} + 老客 {tot["成交_老客"]:,.0f} '
+                             f'= {tot["成交_新客"]+tot["成交_老客"]:,.0f}，总人数 {tot["成交_总人数"]:,.0f}')
+        id_note = ('<div class="ft-note">* <b>五档相加不等于上一档，是正常的</b>：'
+                   + '；'.join(_id_parts)
+                   + '。原因＝<b>按人去重</b>——同一个人跨天分别以「新客首次」和「新客二次」到院（或在别处已是老客），'
+                     '只会在「总人数」里计 1 次，但两个明细档各计 1 次。'
+                     '看结构用明细档，看规模一律用「总人数」列。</div>')
+    else:
+        id_note = ''
+
     data_js = json.dumps({
         "dates": dates,
         "totalTrend": A["total_trend"],
@@ -281,7 +387,9 @@ def main():
         "报表维度＝媒介+咨询师，组织机构＝广州广大医院。<br>"
         "<b>录单量</b>＝系统「建档量」字段（网电录单/建档客户数）。<br>"
         "<b>来院人数 / 成交人数</b> 均按五档拆分：<b>新客首次 · 新客二次 · 新客 · 老客 · 总人数</b>"
-        "（新客＝新客首次＋新客二次；总人数＝新客＋老客）。<br>"
+        "（新客＝新客首次＋新客二次；总人数＝新客＋老客）。"
+        "**该恒等式在单日严格成立**；区间合计按人去重后，同一人跨天身份不同只计一次，"
+        "会出现「首次+二次 > 新客」或「新客+老客 ≠ 总人数」1~2 人的差，属正常，规模一律以「总人数」列为准。<br>"
         "<b>成交金额</b>＝所录消费单业绩合计（含退款冲账，个别媒介会出负数，属正常）。"
         "「三方公用(13125)」为公共账号，仅有录单无成交归属。<br>"
         "<b>转化率</b>＝成交人数 ÷ 录单量；<b>客单价</b>＝成交金额 ÷ 成交人数。<br>"
@@ -304,12 +412,20 @@ def main():
     html = html.replace("__RANGE__", f"{_w0.get('start') or dates[0]} ~ {latest}")
     html = html.replace("__INSIGHTS__", "".join(f"<li>{x}</li>" for x in ins))
     html = html.replace("__LATEST__", latest)
+    html = html.replace("__DAYWORD__", _dw)
     html = html.replace("__KPI_NOW__", kpi_now)
     html = html.replace("__KPI_TOT__", kpi_tot)
     html = html.replace("__ROWS_BUILD__", rows_build)
     html = html.replace("__ROWS_MONEY__", rows_money)
     html = html.replace("__ROWS_EMP__", rows_emp)
     html = html.replace("__ROWS_ALL__", rows_all)
+    html = html.replace("__FOOT_BUILD__", foot_build)
+    html = html.replace("__FOOT_MONEY__", foot_money)
+    html = html.replace("__FOOT_EMP__", foot_emp)
+    html = html.replace("__FOOT_ALL__", foot_all)
+    html = html.replace("__FOOT_NOTE_EMP__", foot_note_emp)
+    html = html.replace("__FOOT_NOTE_ALL__", foot_note_all)
+    html = html.replace("__ID_NOTE__", id_note)
     html = html.replace("__NMEDIA__", str(len(srcs)))
     html = html.replace("__NEMP__", str(len(emps)))
     html = html.replace("__NDAYS__", str(len(dates)))
@@ -363,6 +479,15 @@ td.colhl{background:#fff2cc!important;box-shadow:inset 0 0 0 1.5px #efb024}
 .kpi .k{font-size:12.5px;color:var(--sub);margin-bottom:6px}
 .kpi .v{font-size:25px;font-weight:700;letter-spacing:-.4px}
 .kpi .d{font-size:12.5px;margin-top:5px;color:var(--sub)}
+.kpi .sp{font-size:12.8px;margin-top:6px;color:var(--sub);letter-spacing:.2px}
+.kpi .sp b{font-weight:700}
+.kpi .sp .na b{color:#0a7ea4}
+.kpi .sp .ol b{color:#9a4c1a}
+.kpi .sp .sep{color:#c3c9d9;margin:0 8px}
+td.ft{background:#f4f6ff;font-weight:700;border-top:2px solid #dfe3f5;border-bottom:0}
+tr.sub td.ft{background:#fafbff;font-weight:600;color:var(--sub)}
+tr.sub td.ft[data-col]{font-weight:600}
+.ft-note{font-size:12px;color:#8a6c33;margin-top:6px}
 ul.ins{list-style:none;padding:0;margin:0}
 ul.ins li{padding:11px 0;border-bottom:1px dashed var(--line);font-size:14.2px}
 ul.ins li:last-child{border-bottom:0}
@@ -382,6 +507,8 @@ tbody tr:hover{background:#fbfcff}
 @media(max-width:860px){.grid2{grid-template-columns:1fr}}
 .scroll{max-height:430px;overflow:auto;border:1px solid var(--line);border-radius:12px}
 .scroll table{font-size:13px}.scroll th{top:0}
+/* 长表格里的合计行吸底，滚动时也看得见 */
+.scroll tfoot td.ft{position:sticky;bottom:0;z-index:3;box-shadow:0 -3px 8px rgba(16,24,40,.07)}
 .note{font-size:12.8px;color:var(--sub);background:#fbfcff;border:1px dashed var(--line);border-radius:12px;padding:12px 15px}
 .toolbar{display:flex;gap:10px;justify-content:flex-end;margin:0 0 16px}
 button{background:var(--a);color:#fff;border:0;border-radius:11px;padding:9px 17px;font-size:13.6px;cursor:pointer;box-shadow:0 5px 16px rgba(99,91,255,.3)}
@@ -409,7 +536,7 @@ button{background:var(--a);color:#fff;border:0;border-radius:11px;padding:9px 17
   </div>
   <div class="card"><ul class="ins">__INSIGHTS__</ul></div>
 
-  <h2><span class="n">02</span>昨日速览 · __LATEST__</h2>
+  <h2><span class="n">02</span>__DAYWORD__速览 · __LATEST__</h2>
   <div class="kpis">__KPI_NOW__</div>
   <div style="height:8px"></div>
   <div class="kpis">__KPI_TOT__</div>
@@ -431,7 +558,9 @@ button{background:var(--a);color:#fff;border:0;border-radius:11px;padding:9px 17
         </tr>
       </thead>
       <tbody>__ROWS_BUILD__</tbody>
+      __FOOT_BUILD__
     </table>
+    __ID_NOTE__
   </div>
 
   <h2><span class="n">04</span>各媒介成交情况（TOP20 · 按金额）</h2>
@@ -451,6 +580,7 @@ button{background:var(--a);color:#fff;border:0;border-radius:11px;padding:9px 17
         </tr>
       </thead>
       <tbody>__ROWS_MONEY__</tbody>
+      __FOOT_MONEY__
     </table>
   </div>
 
@@ -471,7 +601,9 @@ button{background:var(--a);color:#fff;border:0;border-radius:11px;padding:9px 17
         </tr>
       </thead>
       <tbody>__ROWS_EMP__</tbody>
+      __FOOT_EMP__
     </table>
+    __FOOT_NOTE_EMP__
   </div>
 
   <h2><span class="n">06</span>趋势分析（__NDAYS__ 天）</h2>
@@ -502,8 +634,9 @@ button{background:var(--a);color:#fff;border:0;border-radius:11px;padding:9px 17
         </tr>
       </thead>
       <tbody>__ROWS_ALL__</tbody>
+      __FOOT_ALL__
     </table>
-  </div></div>
+  </div>__FOOT_NOTE_ALL__</div>
 
   <h2><span class="n">09</span>数据口径说明</h2>
   <div class="note">__NOTE__</div>
