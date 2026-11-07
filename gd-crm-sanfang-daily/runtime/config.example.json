@@ -1,0 +1,7 @@
+{
+  "base_url": "http://192.168.16.138",
+  "username": "改成你的 CRM 账号",
+  "password": "改成你的 CRM 密码",
+  "media_source": "三方营销",
+  "note": "复制本文件为 config.local.json 后填写真实凭据；config.local.json 已被 .gitignore 排除，切勿提交"
+}
