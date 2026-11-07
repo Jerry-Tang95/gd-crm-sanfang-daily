@@ -1,0 +1,15 @@
+# 凭据：绝不入库
+**/config.local.json
+
+# 运行产生的数据与留档（含真实业绩，不入库）
+**/data/
+**/history/
+**/*.xls
+**/*.html
+
+# Python 缓存
+**/__pycache__/
+**/*.pyc
+
+# 临时生成物
+**/gen_oct_report.py
