@@ -41,6 +41,7 @@ CORE = [
     "check_group_hl.py",
     "check_charts.py",
     "gen_range_report.py",
+    "gen_month.py",
     "gen_oct.py",
     "probe_oct.py",
 ]
