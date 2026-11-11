@@ -1,6 +1,6 @@
 {
   "skill": "gd-crm-sanfang-daily",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "test_cases": [
     {
       "id": "should-trigger-05",
@@ -8,6 +8,13 @@
       "prompt": "定时任务触发：按 Skill 跑今天的三方营销日报",
       "expected_behavior": "加载 gd-crm-sanfang-daily 后严格按《每日定时任务执行 SOP》跑完 ①~⑧：先测 TCP 80 → 一键脚本 → 检查 analyze 累计行（缺则判假成功报失败）→ 从 sanfang.json 现算数字 → verify_days/高亮/图表/HTML 边界校验 → 按固定模板汇报 → 追加自动化 memory 摘要；不带参数、不手工指定窗口",
       "notes": "定时任务唯一入口，2026-11-07 起生效"
+    },
+    {
+      "id": "should-trigger-09",
+      "type": "should_trigger",
+      "prompt": "核心结论、昨日速览要分开新客、老客成交的业绩，分别算出客单价，验证全绿后同步更新 skill 和 GitHub 仓库",
+      "expected_behavior": "改 gen_report_sanfang.py：01 核心结论单列「新老客业绩与客单价」，02 的「昨日业绩」「N 天业绩」两张卡拆新客/老客业绩 + 各自客单价（＝该档金额÷该档成交人数，人数为 0 显示「—」）；全部从 window_totals / total_trend 现算；重出报告后跑 py_compile / check_group_hl / check_charts / 全文数字体检，再 sync_runtime.py 同步 runtime、verify_skill.py --full、publish_skill.py + verify_publish.py 发布",
+      "notes": "2026-11-11 v1.4；改版式必须同步 runtime 与远端"
     },
     {
       "id": "should-trigger-01",
