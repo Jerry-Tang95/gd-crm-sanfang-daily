@@ -75,17 +75,38 @@ def main():
     _n_conv = _d_n / _v_n * 100 if _v_n else 0
     _o_conv = _d_o / _v_o * 100 if _v_o else 0
     _m_n_share = _m_n / tot["成交总金额"] * 100 if tot["成交总金额"] else 0
+    # 新客 / 老客 各自的客单价 = 该档业绩 ÷ 该档成交人数（人数为 0 时不计算，显示「—」）
+    _aov_n = _m_n / _d_n if _d_n else None
+    _aov_o = _m_o / _d_o if _d_o else None
+
+    def _aov_txt(v):
+        return f"{v:,.0f}" if v is not None else "—"
+
+    # 区间按人去重会让「新客 + 老客」比「总人数」多 1~2 人，客单价按各档自身分母算，须说明
+    _gap = _d_n + _d_o - tot["成交_总人数"]
+    _dd_note = (f'<span style="color:#8a6c33">（区间按人去重：新客 {_d_n:,.0f} + 老客 {_d_o:,.0f} '
+                f'与总人数 {tot["成交_总人数"]:,.0f} 相差 {_gap:+,.0f} 人，'
+                f'客单价按各档自身分母计算）</span>' if abs(_gap) >= 0.5 else '')
+    _aov_cmp = ''
+    if _aov_n is not None and _aov_o is not None and _aov_n > 0 and _aov_o > 0:
+        _ratio = _aov_n / _aov_o
+        _aov_cmp = (f'新客客单价是老客的 <b>{_ratio:.1f} 倍</b>' if _ratio >= 1
+                    else f'新客客单价仅为老客的 <b>{_ratio*100:.0f}%</b>')
     ins = [
         f'<b>整体：三方营销「{_overall}」。</b>{_ndays} 天录单 <b>{tot["建档量"]:,.0f}</b> 个、'
         f'来院 <b>{_v_t:,.0f}</b> 人（新客 {_v_n:,.0f} / 老客 {_v_o:,.0f}），'
         f'成交 <b>{tot["成交_总人数"]:,.0f}</b> 人（新客 {_d_n:,.0f} / 老客 {_d_o:,.0f}，区间内按人去重），'
         f'转化率 <b>{conv:.2f}%</b>，业绩 {tot["成交总金额"]:,.0f} 元，客单价 {aov/10000:.1f} 万。',
+        f'<b>新老客业绩与客单价：</b>'
+        f'新客 <b>{_m_n:,.0f}</b> 元（成交 {_d_n:,.0f} 人 → 客单价 <b>{_aov_txt(_aov_n)}</b> 元，占业绩 {_m_n_share:.0f}%）；'
+        f'老客 <b>{_m_o:,.0f}</b> 元（成交 {_d_o:,.0f} 人 → 客单价 <b>{_aov_txt(_aov_o)}</b> 元）。'
+        + (_aov_cmp + '。' if _aov_cmp else '')
+        + _dd_note,
         f'<b>新老客结构：</b>来院以{"新客" if _n_share >= 50 else "老客"}为主'
         f'（新客 {_v_n:,.0f} 人占 {_n_share:.0f}% / 老客 {_v_o:,.0f} 人）；'
         f'来院→成交 转化 新客 <b>{_n_conv:.1f}%</b>、老客 <b>{_o_conv:.1f}%</b>。'
         f'新客再拆两层：首次到院 {tot["来院_新客首次"]:,.0f} 人仅成交 {tot["成交_新客首次"]:,.0f} 人，'
         f'二次到院 {tot["来院_新客二次"]:,.0f} 人成交 {tot["成交_新客二次"]:,.0f} 人。'
-        f'按金额：新客 {_m_n:,.0f} 元（{_m_n_share:.0f}%）、老客 {_m_o:,.0f} 元。'
         + ('<span class="warn">新客首次 0 人成交 —— 首诊当天下单几乎为零，业绩靠二次跟进与老客复购。</span>'
            if tot["成交_新客首次"] == 0 else
            ('<span class="warn">老客到院转化明显高于新客 —— 复购比首诊更容易出单。</span>'
@@ -244,6 +265,16 @@ def main():
                 f'<span class="sep">·</span>'
                 f'<span class="ol">老客 <b>{ol:,.0f}</b></span>')
 
+    def money_cell(m_n, d_n, m_o, d_o):
+        """业绩卡专用：新客 / 老客 业绩 + 各自客单价（＝该档金额 ÷ 该档成交人数）"""
+        def aov(m, d):
+            return f"{m/d:,.0f}" if d else "—"
+        new = (f'<span class="na">新客 <b>{m_n:,.0f}</b> 元 · 客单价 <b>{aov(m_n, d_n)}</b></span>')
+        old = (f'<span class="ol">老客 <b>{m_o:,.0f}</b> 元 · 客单价 <b>{aov(m_o, d_o)}</b></span>')
+        tail = ('<br><span>0 人成交，客单价不适用（金额来自退款冲账或未挂人数）</span>'
+                if not (d_n or d_o) else '')
+        return new + '<br>' + old + tail
+
     # 日报最新日通常是「昨天」；月报/区间报告的最新日不是昨天 → 改叫「最新日」，避免读着别扭
     _yest = (_dt.date.today() - _dt.timedelta(days=1)).isoformat()
     _dw = "昨日" if latest == _yest else "最新日"
@@ -254,7 +285,9 @@ def main():
             split=sp_cell(g(latest,"来院_新客"), g(latest,"来院_老客"))),
         kpi(f"{_dw}成交", f"{g(latest,'成交_总人数'):,.0f}", _dlabel(pct(g(latest,"成交_总人数"),g(prev,"成交_总人数"))),
             split=sp_cell(g(latest,"成交_新客"), g(latest,"成交_老客"))),
-        kpi(f"{_dw}业绩", f"{g(latest,'成交总金额'):,.0f}", _dlabel(pct(g(latest,"成交总金额"),g(prev,"成交总金额"))), " 元"),
+        kpi(f"{_dw}业绩", f"{g(latest,'成交总金额'):,.0f}", _dlabel(pct(g(latest,"成交总金额"),g(prev,"成交总金额"))), " 元",
+            split=money_cell(g(latest,"金额_新客"), g(latest,"成交_新客"),
+                             g(latest,"金额_老客"), g(latest,"成交_老客"))),
     ])
     kpi_tot = "".join([
         kpi(f"{_ndays}天录单", f"{tot['建档量']:,.0f}"),
@@ -262,7 +295,8 @@ def main():
             split=sp_cell(tot["来院_新客"], tot["来院_老客"])),
         kpi(f"{_ndays}天成交", f"{tot['成交_总人数']:,.0f}", "按人去重",
             split=sp_cell(tot["成交_新客"], tot["成交_老客"])),
-        kpi(f"{_ndays}天业绩", f"{tot['成交总金额']/10000:,.1f} 万", f"转化率 {conv:.2f}% · 客单价 {aov/10000:.1f}万"),
+        kpi(f"{_ndays}天业绩", f"{tot['成交总金额']/10000:,.1f} 万", f"转化率 {conv:.2f}% · 客单价 {aov/10000:.1f}万",
+            split=money_cell(tot["金额_新客"], tot["成交_新客"], tot["金额_老客"], tot["成交_老客"])),
     ])
 
     def rk(i):
@@ -392,7 +426,9 @@ def main():
         "会出现「首次+二次 > 新客」或「新客+老客 ≠ 总人数」1~2 人的差，属正常，规模一律以「总人数」列为准。<br>"
         "<b>成交金额</b>＝所录消费单业绩合计（含退款冲账，个别媒介会出负数，属正常）。"
         "「三方公用」为公共账号，仅有录单无成交归属。<br>"
-        "<b>转化率</b>＝成交人数 ÷ 录单量；<b>客单价</b>＝成交金额 ÷ 成交人数。<br>"
+        "<b>转化率</b>＝成交人数 ÷ 录单量；<b>客单价</b>＝成交金额 ÷ 成交人数；"
+        "<b>新客 / 老客客单价</b>＝该档成交金额 ÷ 该档成交人数（该档人数为 0 时不计算，报告显示「—」；"
+        "金额含退款冲账，故允许为负）。<br>"
         "⚠️ 本报告所有指标按<b>明细行逐条加总</b>统计，未使用报表自带的类型汇总行（该行成交总人数字段有误，会明显偏小）。<br>"
         "<b>数据口径</b>：总量、媒介表、咨询师表全部直接取自 <b>CRM 区间报表</b>"
         "（与在系统里手动导出同一区间完全一致），不做任何推算或跨期合并。"
@@ -479,7 +515,7 @@ td.colhl{background:#fff2cc!important;box-shadow:inset 0 0 0 1.5px #efb024}
 .kpi .k{font-size:12.5px;color:var(--sub);margin-bottom:6px}
 .kpi .v{font-size:25px;font-weight:700;letter-spacing:-.4px}
 .kpi .d{font-size:12.5px;margin-top:5px;color:var(--sub)}
-.kpi .sp{font-size:12.8px;margin-top:6px;color:var(--sub);letter-spacing:.2px}
+.kpi .sp{font-size:12.8px;margin-top:6px;color:var(--sub);letter-spacing:.2px;line-height:1.65}
 .kpi .sp b{font-weight:700}
 .kpi .sp .na b{color:#0a7ea4}
 .kpi .sp .ol b{color:#9a4c1a}
