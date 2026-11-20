@@ -1,5 +1,7 @@
 # gd-crm-sanfang-daily
 
+![version](https://img.shields.io/badge/version-v1.4-3972E8) ![python](https://img.shields.io/badge/python-3.9%2B-3776AB) ![platform](https://img.shields.io/badge/platform-windows-0078D4) ![schedule](https://img.shields.io/badge/schedule-daily%2008%3A00-2EA44F) ![status](https://img.shields.io/badge/status-active-brightgreen)
+
 内网 GD-CRM「三方营销」媒介日报的**执行说明书**：一键脚本取数 → 区间报表唯一真值 → 三方聚合 → 单文件 HTML 趋势报告，附口径核对与「假成功」识别。
 
 > ✅ **clone 即可部署**：`runtime/` 里带 15 个可移植脚本 + 图表库，新电脑装完依赖、填好凭据就能出报告。**完整部署步骤见 [`runtime/DEPLOY.md`](gd-crm-sanfang-daily/runtime/DEPLOY.md)**。
