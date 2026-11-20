@@ -31,7 +31,7 @@
 
 ## 二、八步流水线（`run_daily.py` 内部顺序）
 
-![八步流水线](assets/pipeline.svg)
+![八步流水线](https://raw.githubusercontent.com/Jerry-Tang95/gd-crm-sanfang-daily/main/gd-crm-sanfang-daily/assets/pipeline.svg)
 
 | # | 脚本 | 干什么 | 产物 |
 |---|---|---|---|
@@ -48,7 +48,7 @@
 
 ### v1.5 新增：Pro 六阶分析层
 
-![Pro 六阶分析层](assets/pro-six-stages.svg)
+![Pro 六阶分析层](https://raw.githubusercontent.com/Jerry-Tang95/gd-crm-sanfang-daily/main/gd-crm-sanfang-daily/assets/pro-six-stages.svg)
 
 借鉴 `data-analyst-pro`（质量数据分析）方法论，对同一份数据做六阶深度分析，再融进主报告成一个页面。**定位铁律：01 核心结论管「是什么、怎么办」，Pro 层管「这个结论靠不靠谱、往哪走」**——是对 01 的**复检 + 升级**，不是再分析一遍：
 
