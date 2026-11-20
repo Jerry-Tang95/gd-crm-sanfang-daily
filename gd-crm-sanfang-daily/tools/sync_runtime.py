@@ -36,6 +36,8 @@ CORE = [
     "build_range_baseline.py",
     "analyze_sanfang.py",
     "gen_report_sanfang.py",
+    "da_pro_analysis.py",
+    "gen_da_pro_fusion.py",
     "verify_days.py",
     "verify_against_crm_export.py",
     "check_group_hl.py",
