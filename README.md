@@ -31,6 +31,8 @@
 
 ## 二、八步流水线（`run_daily.py` 内部顺序）
 
+![八步流水线](assets/pipeline.svg)
+
 | # | 脚本 | 干什么 | 产物 |
 |---|---|---|---|
 | 1 | `fetch_window.py` | 二分探测 CRM 当前可查首日，按整月区间导出区间报表 | `window.json`、`range.xls` |
@@ -45,6 +47,8 @@
 **parse / baseline / analyze / gen 四步全绿才留档**，否则 `archive_report()` 会跳过，避免把假成功版本存进历史。第 7、8 步是**增值分析层**：纯本地后处理（复用主报告内联的 echarts，不联网、不改主报告），只在核心四步全绿后跑；失败只告警，不影响主报告成功判定。整个流程约 1~8 分钟（含逐日补抓），属正常，别中途当卡死杀掉。
 
 ### v1.5 新增：Pro 六阶分析层
+
+![Pro 六阶分析层](assets/pro-six-stages.svg)
 
 借鉴 `data-analyst-pro`（质量数据分析）方法论，对同一份数据做六阶深度分析，再融进主报告成一个页面。**定位铁律：01 核心结论管「是什么、怎么办」，Pro 层管「这个结论靠不靠谱、往哪走」**——是对 01 的**复检 + 升级**，不是再分析一遍：
 
@@ -144,6 +148,9 @@ gd-crm-sanfang-daily/                  ← 仓库根
 └── gd-crm-sanfang-daily/              ← Skill 包（可整个拷进 skills 目录）
     ├── SKILL.md                       ← 执行逻辑唯一真源（口径 / SOP / 门禁 / 已知坑）
     ├── test-prompts.json              ← 19 条触发 / 边界测试用例
+    ├── assets/                        ← 文档配图（2 张 SVG，无真实数据）
+    │   ├── pipeline.svg               ← 八步流水线全景图（README 第二节引用）
+    │   └── pro-six-stages.svg         ← Pro 六阶分析层图（README v1.5 节引用）
     ├── tools/sync_runtime.py          ← 源机器用：把生产脚本同步成可移植副本
     ├── tools/verify_skill.py          ← 自动自检：结构/元数据/脚本/同步/渲染/版式（--full）
     └── runtime/                       ← 可部署的运行时
