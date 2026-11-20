@@ -1,8 +1,8 @@
 # gd-crm-sanfang-daily
 
-![version](https://img.shields.io/badge/version-v1.4-3972E8) ![python](https://img.shields.io/badge/python-3.9%2B-3776AB) ![platform](https://img.shields.io/badge/platform-windows-0078D4) ![schedule](https://img.shields.io/badge/schedule-daily%2008%3A00-2EA44F) ![status](https://img.shields.io/badge/status-active-brightgreen)
+![version](https://img.shields.io/badge/version-v1.5-3972E8) ![python](https://img.shields.io/badge/python-3.9%2B-3776AB) ![platform](https://img.shields.io/badge/platform-windows-0078D4) ![schedule](https://img.shields.io/badge/schedule-daily%2008%3A00-2EA44F) ![status](https://img.shields.io/badge/status-active-brightgreen)
 
-内网 GD-CRM「三方营销」媒介日报的**执行说明书**：一键脚本取数 → 区间报表唯一真值 → 三方聚合 → 单文件 HTML 趋势报告，附口径核对与「假成功」识别。
+内网 GD-CRM「三方营销」媒介日报的**执行说明书**：一键脚本取数 → 区间报表唯一真值 → 三方聚合 → 单文件 HTML 趋势报告 → **自动接 data-analyst-pro 六阶分析生成 Pro 融合版**，附口径核对与「假成功」识别。
 
 > ✅ **clone 即可部署**：`runtime/` 里带 15 个可移植脚本 + 图表库，新电脑装完依赖、填好凭据就能出报告。**完整部署步骤见 [`runtime/DEPLOY.md`](gd-crm-sanfang-daily/runtime/DEPLOY.md)**。
 > ⚠️ 两个硬前提：**新电脑必须能连公司内网 `192.168.16.138`**（缺 VPN 就出不了数，别去改代码）；**账号密码不在仓库里**，要自己把 `config.example.json` 复制成 `config.local.json` 填写。
@@ -23,12 +23,13 @@
 | **统计窗口** | 当月 1 号 ~ 前一天，由程序二分探测 CRM 当前可查首日自动决定，**不手工指定** |
 | **核心中间数据** | `window.json`（窗口）、`range.xls` + `range_baseline.json`（区间报表真值）、`sanfang.json`（聚合结果，下游共用） |
 | **主交付物** | `三方营销媒介分析报告.html`（单文件，主文件同名覆盖，生成时自动留档到 `history\`，同窗口同 md5 去重） |
+| **Pro 分析交付物** | `三方营销_质量数据分析Pro_融合版.html`（v1.5 新增：六阶分析融入主报告的独立单页，不覆盖主报告，`Pro_{start}_{end}_` 前缀单独留档） |
 | **汇报内容** | 报告路径 → 实际统计区间（天数 + `queryable_start`）→ 区间合计四项 → 最新一天四项 + 环比 → 异常清单 → 一句话结论；另附口径差与校验结果 |
 | **下游** | `weekly-report-fill` 消费 `sanfang.json` 的 `window_totals / total_trend / daily_sum / src_total / emp_total / dates / window` 填周报，**共用取数层** |
 
 四项核心数 = 建档量（报告里显示「录单」）、来院总人数、成交总人数、成交总金额。转化率与客单价都由这四项现算。
 
-## 二、六步流水线（`run_daily.py` 内部顺序）
+## 二、八步流水线（`run_daily.py` 内部顺序）
 
 | # | 脚本 | 干什么 | 产物 |
 |---|---|---|---|
@@ -37,9 +38,25 @@
 | 3 | `parse_daily.py` | 单日 xls → json | `data/analysis/daily/*.json` |
 | 4 | `build_range_baseline.py` | 区间报表 → 合计 / 媒介 / 咨询师 / 五档的**唯一真值** | `range_baseline.json` |
 | 5 | `analyze_sanfang.py` | 合并成最终结果，打印累计行 | `sanfang.json` |
-| 6 | `gen_report_sanfang.py` | 生成 HTML + 自动留档快照 | 主报告 + `history\` |
+| 6 | `gen_report_sanfang.py` | 生成主报告 HTML + 自动留档快照 | 主报告 + `history\` |
+| 7 | `da_pro_analysis.py` | **六阶分析**（描述/对比/趋势/异常/因果/预测 + 防错溯源 + 四维评分） | `data/analysis/da_pro.json` |
+| 8 | `gen_da_pro_fusion.py` | 六阶分析融入主报告 | Pro 融合版（独立文件，单独留档） |
 
-**parse / baseline / analyze / gen 四步全绿才留档**，否则 `archive_report()` 会跳过，避免把假成功版本存进历史。整个流程约 1~8 分钟（含逐日补抓），属正常，别中途当卡死杀掉。
+**parse / baseline / analyze / gen 四步全绿才留档**，否则 `archive_report()` 会跳过，避免把假成功版本存进历史。第 7、8 步是**增值分析层**：纯本地后处理（复用主报告内联的 echarts，不联网、不改主报告），只在核心四步全绿后跑；失败只告警，不影响主报告成功判定。整个流程约 1~8 分钟（含逐日补抓），属正常，别中途当卡死杀掉。
+
+### v1.5 新增：Pro 六阶分析层
+
+借鉴 `data-analyst-pro`（质量数据分析）方法论，对同一份数据做六阶深度分析，再融进主报告成一个页面。**定位铁律：01 核心结论管「是什么、怎么办」，Pro 层管「这个结论靠不靠谱、往哪走」**——是对 01 的**复检 + 升级**，不是再分析一遍：
+
+- **描述统计**：均值 vs 中位数，均值高 >20% 判右偏 → 核心汇报用中位数（纠偏 01 用均值报的客单价）
+- **对比分析**：前后半段 + 帕累托；业绩对比警惕单日尖峰撑盘
+- **趋势发现**：3 日移动平均判方向 + 拐点；不重画趋势图，锚点指向主报告 06
+- **异常检测**：3σ + IQR 双法交叉 + 业务核实（负额＝退款冲账、尖峰＝真实 High day）
+- **因果推断**：严格 L1~L6 语言纪律，本数据只支持 L2 关联，绝不说「导致」
+- **预测建议**：80% 区间 + 三情景 + 假设 + 失效条件；每条建议带验证指标
+- 附防错溯源表、三向核对、四维质量评分
+
+**去重**：与 01 重复的 3 处（二次到院改措辞复检、帕累托压成一句佐证、建议标「承接 01」）已按上述定位处理；Pro 版**零新增图**，全页仍是主报告的 7 张图。
 
 ## 三、核心能力清单
 
@@ -56,7 +73,8 @@
    - 其他视觉门禁：ECharts 横向条形图容器高度随条数动态给（否则类目标签被自动隐藏）、4 张表跨组同档联动高亮（同一行同一档恰好 2 格）、单日窗口无环比时显示「新周期首日 · 无可比日」而不是拿上月存档凑。
 8. **月报重出** —— 上月报告可单独重出：导上月区间 → **备份当月四件套** → 写上月 window → 重跑 baseline / analyze → `gen_month.py 2026-10` 输出独立文件名（不覆盖日报主文件）→ **恢复当月四件套并重跑复核 md5**。**月报复用日报模板**（`gen_month.py` 只设 `SANFANG_SRC` / `REPORT_OUT` 两个环境变量再调 `gen_report_sanfang.py`），所以日报的版式改动会自动带到月报；归档 json 存在时可跳过取数步骤，直接 `gen_month.py` 出报告，不联网、不动当月数据。
 9. **定时任务闭环** —— 每天 08:00 的「三方营销日报」只负责「加载本 Skill 并按 SOP 执行」，执行逻辑、汇报格式、口径全部收归本文件单一真源，不用回去堆长 prompt。
-10. **留痕** —— 向自动化自己的 `memory.md` 追加一条高层摘要（窗口、合计、最新日环比、异常、校验结果、报告 md5 / 留档名），不把报告全文写进去。
+10. **Pro 六阶分析层**（v1.5）—— 主报告后自动接两步本地分析，产出 Pro 融合版；定位为对 01 的「复检 + 升级」，不重复分析、不新增图；因果语言分级、预测给区间、建议带验证指标。
+11. **留痕** —— 向自动化自己的 `memory.md` 追加一条高层摘要（窗口、合计、最新日环比、异常、校验结果、报告 md5 / 留档名），不把报告全文写进去。
 
 ## 四、数据口径铁律（违反必出错）
 
@@ -125,13 +143,13 @@ gd-crm-sanfang-daily/                  ← 仓库根
 ├── .gitignore                         ← 排除凭据、数据、留档
 └── gd-crm-sanfang-daily/              ← Skill 包（可整个拷进 skills 目录）
     ├── SKILL.md                       ← 执行逻辑唯一真源（口径 / SOP / 门禁 / 已知坑）
-    ├── test-prompts.json              ← 16 条触发 / 边界测试用例
+    ├── test-prompts.json              ← 19 条触发 / 边界测试用例
     ├── tools/sync_runtime.py          ← 源机器用：把生产脚本同步成可移植副本
     ├── tools/verify_skill.py          ← 自动自检：结构/元数据/脚本/同步/渲染/版式（--full）
     └── runtime/                       ← 可部署的运行时
         ├── DEPLOY.md                  ← 新电脑部署完整步骤
         ├── run_daily.py               ← 一键入口
-        ├── ... 共 15 个 .py           ← 六步流水线 + 4 个校验 + 月报重出
+        ├── ... 共 17 个 .py           ← 八步流水线（含 2 个 Pro 分析）+ 4 个校验 + 月报重出
         ├── assets/echarts.min.js      ← 图表库（随仓库分发，约 1 MB）
         ├── config.example.json        ← 凭据模板
         └── requirements.txt           ← playwright + xlrd
@@ -165,7 +183,9 @@ Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`，目录名即 skill 名
 
 ## 30 秒验证
 
-问 **「跑一下今天的三方营销日报」** → 应加载本 skill，用托管 python 跑 `run_daily.py`（不带参数），并汇报实际统计区间、区间合计、最新一天四项核心数。
+问 **「跑一下今天的三方营销日报」** → 应加载本 skill，用托管 python 跑 `run_daily.py`（不带参数），并汇报实际统计区间、区间合计、最新一天四项核心数；日志末尾应出现「Pro 融合版」一行（v1.5 自动接六阶分析）。
+
+问 **「出 Pro 版分析 / 六阶分析」** → 应加载本 skill，用 `da_pro_analysis.py` + `gen_da_pro_fusion.py`（不联网）重出 Pro 融合版，并说明它是对 01 核心结论的复检 + 升级、不重复分析。
 
 再问 **「用云客 CRM 拉一份团队周报」** → 应**不**触发本 skill（见下方边界）。
 
@@ -179,11 +199,11 @@ Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`，目录名即 skill 名
 
 不是「答不上来」，而是这些场景有更专业的入口。
 
-## 测试用例（全部 16 条，来自 `test-prompts.json`）
+## 测试用例（全部 19 条，来自 `test-prompts.json`）
 
-`test-prompts.json` 未声明 `minimum_pass_rate`，建议按 **16/16 全通过**验收。分组：8 应触发 / 3 不应触发 / 5 边界。
+`test-prompts.json` 未声明 `minimum_pass_rate`，建议按 **19/19 全通过**验收。分组：10 应触发 / 3 不应触发 / 6 边界。
 
-### 应触发（8）
+### 应触发（10）
 
 | 提问原文 | 期望行为 |
 |---|---|
@@ -196,6 +216,8 @@ Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`，目录名即 skill 名
 | 来院和成交的结论跟速览要分新客和老客 | 02 速览四张卡（昨日 / 区间 的来院、成交）加 `新客 X · 老客 Y` 拆分行；核心结论首条带拆分并单列「新老客结构」（转化分新老、新客再拆首次/二次、金额分新老）；数字全从 `window_totals` 现算，不写常量 |
 | 表格下面要有一个合计数量，现在只看到每个媒介的，没有总的合计 | 4 张主表都补 `tfoot`：03/04 TOP20 表给「本表 TOP20 小计 + 全部 N 个媒介合计」两行，05 咨询师表 / 08 全部媒介表各一行「合计」；08 表在 `.scroll` 里 sticky 吸底；合计取 `window_totals` 并与逐行相加对得上 |
 | 把 10 月的月报也更新成新版式（要带新老客拆分和合计行） | 月报复用日报模板：用 `data/archive_YYYY-MM/sanfang.json` 跑 `gen_month.py 2026-10`，输出独立文件名不覆盖日报；确认速览卡拆分、4 张表合计行、五档相加对不上时有 `id_note` 解释（按人去重） |
+| 给我出一份 Pro 版分析 / 用六阶法分析三方营销日报 | v1.5：不联网跑 `da_pro_analysis.py` + `gen_da_pro_fusion.py` 出 Pro 融合版（独立文件不覆盖主报告）；说明定位是对 01 的复检+升级：右偏纠偏、3σ+IQR 异常、L2 因果纪律、80% 区间预测、建议带验证指标；零新增图 |
+| 定时任务触发时也自动出 Pro 版吗 | v1.5：`run_daily.py` 主报告后自动接第 7、8 步；Pro 两步失败只告警、不影响主报告成功判定；日志有「Pro 融合版」一行即正常 |
 
 ### 不应触发（3）
 
@@ -205,10 +227,11 @@ Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`，目录名即 skill 名
 | 帮我填这周的周总结 | 不调用，走 `weekly-report-fill`（同一数据源但下游交付物不同） |
 | 跑一下网电咨询报表 | 不调用，走 `wangdian-monthly-report`（同为报表但另一套流程） |
 
-### 边界（5）
+### 边界（6）
 
 | 提问原文 | 期望行为 |
 |---|---|
+| Pro 分析脚本报错了，主报告还能用吗 | v1.5：能。Pro 是增值层，失败只告警不影响主报告；如实告知 Pro 版本次没出、附报错，不拿旧 Pro 版冒充新数据 |
 | 脚本报错了但 HTML 报告还在，能用吗 | 判为**假成功**：查 analyze 累计行与四步退出码；如实报失败，不沿用上一版报告 |
 | 10 月 1 号到 19 号查不到，用本地存档把月初补上吧 | 明确拒绝：CRM 已归并，叠加会重复计算；合计只取区间报表 |
 | 逐日相加和合计差了 21 人来院，把明细改平 | 不修改明细：差异只解释不修补，写进 footer 对账；差值 >20 才去查是否重挂/补录 |
@@ -223,6 +246,6 @@ Windows 下复制到 `%USERPROFILE%\.workbuddy\skills\`，目录名即 skill 名
 
 ## 版本
 
-v1.4 / 2026-11-11 · 资产账本 SK-096 · 本 skill 是定时任务执行逻辑的**唯一真源**，改口径 / 汇报格式只改 `SKILL.md` 一处。
+v1.5 / 2026-11-20 · 资产账本 SK-096 · 本 skill 是定时任务执行逻辑的**唯一真源**，改口径 / 汇报格式只改 `SKILL.md` 一处。
 
-`runtime/` 于 2026-11-07 加入：从生产项目目录同步脚本并打 4 类可移植补丁，源目录未改动。以后源脚本改了，跑 `python tools/sync_runtime.py --src "<生产项目目录>"` 重新生成，再重跑发布命令即可。2026-11-11 已按 v1.4 重新同步并发布。
+`runtime/` 于 2026-11-07 加入：从生产项目目录同步脚本并打 4 类可移植补丁，源目录未改动。以后源脚本改了，跑 `python tools/sync_runtime.py --src "<生产项目目录>"` 重新生成，再重跑发布命令即可。2026-11-20 已按 v1.5 重新同步并发布（新增 Pro 六阶分析层 2 个脚本）。
