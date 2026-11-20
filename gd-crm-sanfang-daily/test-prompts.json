@@ -1,6 +1,6 @@
 {
   "skill": "gd-crm-sanfang-daily",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "test_cases": [
     {
       "id": "should-trigger-05",
@@ -120,6 +120,20 @@
       "prompt": "把 10 月的月报也更新成新版式（要带新老客拆分和合计行）",
       "expected_behavior": "月报复用日报模板：优先用 data/archive_YYYY-MM/sanfang.json 跑 gen_month.py 2026-10，输出独立文件名不覆盖日报；确认速览卡有新客/老客拆分、4 张表有合计行、五档相加对不上时有 id_note 解释（按人去重）",
       "notes": "2026-11-07 确认：gen_month.py 复用 gen_report_sanfang.py，改一处两边生效"
+    },
+    {
+      "id": "should-trigger-10",
+      "type": "should_trigger",
+      "prompt": "给我出一份 Pro 版分析 / 用六阶法分析三方营销日报 / 决策分析融合版",
+      "expected_behavior": "加载 gd-crm-sanfang-daily：不联网，用 da_pro_analysis.py 读 sanfang.json 出 da_pro.json，再 gen_da_pro_fusion.py 生成 三方营销_质量数据分析Pro_融合版.html（独立文件不覆盖主报告）；说明定位是对 01 核心结论的复检+升级：均值/中位数右偏纠偏、3σ+IQR 异常、L2 因果语言纪律、80% 区间预测、建议带验证指标；与 01 重复的 3 处按复检/佐证/承接处理，零新增图",
+      "notes": "v1.5 新增 Pro 六阶分析层"
+    },
+    {
+      "id": "edge-06",
+      "type": "edge_case",
+      "prompt": "Pro 分析脚本报错了，主报告还能用吗？",
+      "expected_behavior": "能。Pro 层（第7、8步）是增值分析，失败只打告警不影响主报告成功判定；如实告知 Pro 版本次没出、附报错原因，不拿旧 Pro 版冒充新数据；主报告照常交付",
+      "notes": "v1.5：run_daily.py 里 Pro 两步失败只告警"
     }
   ]
 }
