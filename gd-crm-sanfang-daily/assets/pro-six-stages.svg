@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" width="100%" role="img" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+<title>Pro 六阶分析层</title>
+<desc>data-analyst-pro 六阶分析法：描述、对比、趋势、异常、因果、预测，逐级推进。定位是对 01 核心结论的复检加升级，不是再分析一遍；因果语言分级，预测给区间，去重后零新增图。</desc>
+<defs>
+<linearGradient id="pg" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#3b2f8f"/><stop offset="1" stop-color="#00b8d9"/></linearGradient>
+<marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+<rect width="900" height="600" fill="#f8fafc"/>
+<text x="450" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#1a1f36">Pro 六阶分析层 · data-analyst-pro</text>
+<text x="450" y="56" text-anchor="middle" font-size="12" fill="#64748b">侦探型分析师：先防错、再逐级推进，因果语言分级，预测给区间，建议带验证指标</text>
+
+<rect x="40" y="74" width="820" height="46" rx="10" fill="url(#pg)"/>
+<text x="450" y="96" text-anchor="middle" font-size="13.5" font-weight="700" fill="#fff">定位铁律：01 管「是什么、怎么办」　｜　Pro 层管「结论靠不靠谱、往哪走」= 对 01 的复检 + 升级，不是再分析一遍</text>
+<text x="450" y="112" text-anchor="middle" font-size="11" fill="#e0e7ff">防错六步：源审阅 → 溯源表 → 只提取一次 → 自洽验证 → 三向核对 → 交付锁定</text>
+
+<g font-size="12.5">
+<rect x="40" y="146" width="132" height="70" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+<text x="106" y="168" text-anchor="middle" font-weight="700" fill="#4338ca">① 描述统计</text>
+<text x="106" y="188" text-anchor="middle" font-size="11" fill="#6366f1">均值/中位数</text>
+<text x="106" y="204" text-anchor="middle" font-size="10.5" fill="#6366f1">右偏 &gt;20% 用中位数</text>
+
+<rect x="184" y="146" width="132" height="70" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+<text x="250" y="168" text-anchor="middle" font-weight="700" fill="#4338ca">② 对比分析</text>
+<text x="250" y="188" text-anchor="middle" font-size="11" fill="#6366f1">前后半段 + 帕累托</text>
+<text x="250" y="204" text-anchor="middle" font-size="10.5" fill="#6366f1">警惕单日尖峰撑盘</text>
+
+<rect x="328" y="146" width="132" height="70" rx="10" fill="#f0fdfa" stroke="#99f6e4"/>
+<text x="394" y="168" text-anchor="middle" font-weight="700" fill="#0f766e">③ 趋势发现</text>
+<text x="394" y="188" text-anchor="middle" font-size="11" fill="#0d9488">3 日移动平均</text>
+<text x="394" y="204" text-anchor="middle" font-size="10.5" fill="#0d9488">方向/速度/拐点</text>
+
+<rect x="472" y="146" width="132" height="70" rx="10" fill="#f0fdfa" stroke="#99f6e4"/>
+<text x="538" y="168" text-anchor="middle" font-weight="700" fill="#0f766e">④ 异常检测</text>
+<text x="538" y="188" text-anchor="middle" font-size="11" fill="#0d9488">3σ + IQR 双法</text>
+<text x="538" y="204" text-anchor="middle" font-size="10.5" fill="#0d9488">业务核实再定性</text>
+
+<rect x="616" y="146" width="132" height="70" rx="10" fill="#fffbeb" stroke="#fde68a"/>
+<text x="682" y="168" text-anchor="middle" font-weight="700" fill="#b45309">⑤ 因果推断</text>
+<text x="682" y="188" text-anchor="middle" font-size="11" fill="#d97706">L1~L6 语言分级</text>
+<text x="682" y="204" text-anchor="middle" font-size="10.5" fill="#d97706">只报 L2 关联</text>
+
+<rect x="760" y="146" width="100" height="70" rx="10" fill="#fffbeb" stroke="#fde68a"/>
+<text x="810" y="168" text-anchor="middle" font-weight="700" fill="#b45309">⑥ 预测</text>
+<text x="810" y="188" text-anchor="middle" font-size="11" fill="#d97706">80% 区间</text>
+<text x="810" y="204" text-anchor="middle" font-size="10.5" fill="#d97706">三情景+假设</text>
+</g>
+<line x1="172" y1="181" x2="182" y2="181" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#pa)"/>
+<line x1="316" y1="181" x2="326" y2="181" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#pa)"/>
+<line x1="460" y1="181" x2="470" y2="181" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#pa)"/>
+<line x1="604" y1="181" x2="614" y2="181" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#pa)"/>
+<line x1="748" y1="181" x2="758" y2="181" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#pa)"/>
+<text x="450" y="240" text-anchor="middle" font-size="11" fill="#94a3b8">浅层没过不往深层走 · 每阶有判断标准 · 不跳级</text>
+
+<text x="40" y="276" font-size="13" font-weight="700" fill="#1a1f36">与 01 重复的 3 处 · 按 Pro 标准处理</text>
+<g font-size="12">
+<rect x="40" y="288" width="820" height="34" rx="8" fill="#fff"/>
+<text x="56" y="310" fill="#334155"><tspan font-weight="700" fill="#b45309">① 二次到院/老客转化</tspan>（01 第4条）→ 不复述数字，改为<tspan font-weight="700">措辞复检</tspan>：收敛「复购更容易出单」的因果口吻 + 补三档对照</text>
+
+<rect x="40" y="328" width="820" height="34" rx="8" fill="#fff"/>
+<text x="56" y="350" fill="#334155"><tspan font-weight="700" fill="#b45309">② 媒介两极分化</tspan>（01 第5/6条）→ 压成一句佐证 + 锚点，不摆第二套数字</text>
+
+<rect x="40" y="368" width="820" height="34" rx="8" fill="#fff"/>
+<text x="56" y="390" fill="#334155"><tspan font-weight="700" fill="#b45309">③ 建议 2/3</tspan>（源自 01）→ 标「承接 01 · 升级」：观察 → 可验证动作；建议 1 标「六阶新增」</text>
+</g>
+
+<rect x="40" y="424" width="820" height="42" rx="9" fill="#f0fdf4" stroke="#bbf7d0"/>
+<text x="56" y="450" font-size="12.5" fill="#166534"><tspan font-weight="700">去重标准</tspan>　一问一图、表格能说清就别画、不重复造数据 → <tspan font-weight="700">Pro 版零新增图</tspan>，全页仍是主报告 7 张图；规模/环比/分层用锚点指向 01/02</text>
+
+<rect x="40" y="482" width="400" height="96" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+<text x="56" y="505" font-size="13" font-weight="700" fill="#4338ca">因果语言分级（不用「导致」）</text>
+<text x="56" y="526" font-size="11.5" fill="#6366f1">L1 时序 → L2 相关 → L3 控制变量 →</text>
+<text x="56" y="544" font-size="11.5" fill="#6366f1">L4 自然实验 → L5 随机实验 → L6 机制</text>
+<text x="56" y="563" font-size="11" fill="#818cf8">本数据只支持 L2，不越级说话</text>
+
+<rect x="460" y="482" width="400" height="96" rx="10" fill="#ecfeff" stroke="#a5f3fc"/>
+<text x="476" y="505" font-size="13" font-weight="700" fill="#0e7490">四维质量自评 · 满分 40</text>
+<text x="476" y="526" font-size="11.5" fill="#0891b2">数据准确性 · 分析深度</text>
+<text x="476" y="544" font-size="11.5" fill="#0891b2">表达清晰度 · 决策可用性</text>
+<text x="476" y="563" font-size="11" fill="#06b6d4">36-40 优秀可直接使用</text>
+</svg>
