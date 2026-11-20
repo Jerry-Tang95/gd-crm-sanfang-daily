@@ -7,7 +7,7 @@
     python tools/verify_skill.py --full     # 追加：playwright 版式与图表回归（较慢，约 40s）
 
 检查项：
-    [1] 文件完整性（SKILL.md / README / test-prompts / runtime 15 脚本 / echarts 资源）
+    [1] 文件完整性（SKILL.md / README / test-prompts / runtime 17 脚本 / echarts 资源）
     [2] SKILL.md frontmatter（YAML 可解析、name/version/summary/triggers 齐全）
     [3] test-prompts.json（JSON 合法、id 唯一、type 合法、条数）
     [4] runtime 脚本：全部 py_compile 通过、无本机绝对路径残留
@@ -33,6 +33,7 @@ SRC = os.environ.get("CRM_SRC_DIR", r"C:\Users\TJL\WorkBuddy\2026-10-14-15-59-59
 
 CORE = ["run_daily.py", "fetch_window.py", "batch_fetch.py", "parse_daily.py",
         "build_range_baseline.py", "analyze_sanfang.py", "gen_report_sanfang.py",
+        "da_pro_analysis.py", "gen_da_pro_fusion.py",
         "verify_days.py", "verify_against_crm_export.py", "check_group_hl.py",
         "check_charts.py", "gen_range_report.py", "gen_month.py", "gen_oct.py", "probe_oct.py"]
 OPTIONAL = ["assets/echarts.min.js", "config.example.json", "requirements.txt", "DEPLOY.md"]
@@ -62,7 +63,7 @@ def main():
     for f in ["SKILL.md", "README.md", "test-prompts.json"]:
         rec(os.path.exists(os.path.join(HERE, f)), f, "" if os.path.exists(os.path.join(HERE, f)) else "缺失")
     miss = [f for f in CORE if not os.path.exists(os.path.join(RUNTIME, f))]
-    rec(not miss, "runtime 核心脚本 15 个", f"缺 {miss}" if miss else "齐全")
+    rec(not miss, "runtime 核心脚本 17 个", f"缺 {miss}" if miss else "齐全")
     miss2 = [f for f in OPTIONAL if not os.path.exists(os.path.join(RUNTIME, f))]
     rec(not miss2, "runtime 附带资源", f"缺 {miss2}" if miss2 else "齐全")
 
@@ -115,7 +116,7 @@ def main():
         txt = open(p, encoding="utf-8").read()
         if r"C:\Users\TJL" in txt or "C:/Users/TJL" in txt:
             badp.append(f)
-    rec(not badc, "15 个脚本 py_compile", f"失败 {badc}" if badc else "全部通过")
+    rec(not badc, "17 个脚本 py_compile", f"失败 {badc}" if badc else "全部通过")
     rec(not badp, "无本机绝对路径残留", f"残留 {badp}" if badp else "")
 
     # [5] runtime ↔ 源目录
@@ -130,7 +131,7 @@ def main():
         diff = [f for f in CORE
                 if os.path.exists(os.path.join(SRC, f))
                 and norm(os.path.join(SRC, f)) != norm(os.path.join(RUNTIME, f))]
-        rec(not diff, f"{len(CORE)} 个脚本内容一致（忽略 4 类补丁行）", f"不一致 {diff}" if diff else "15/15")
+        rec(not diff, f"{len(CORE)} 个脚本内容一致（忽略 4 类补丁行）", f"不一致 {diff}" if diff else "17/17")
 
     # [6] 渲染冒烟
     print("\n[6] 渲染冒烟（runtime 版 vs 生产日报）")
