@@ -1,7 +1,7 @@
 ---
 name: gd-crm-sanfang-daily
-description: 内网 GD-CRM「三方营销」媒介日报：跑一键脚本取数、按区间报表唯一真值出单文件 HTML 趋势报告，并做口径核对与假成功识别。当用户说「跑三方营销日报」「三方日报出数」「媒介日报」「网电咨询师媒介报表」「重出上月报告」「报告数字对不上」「CRM 可查区间」时使用；也是每天 08:00 定时任务「三方营销日报」的执行入口，定时任务触发时按《每日定时任务执行 SOP》跑完整闭环。只适用于内网 192.168.16.138 的 GD-CRM，不适用于云客 CRM。
-summary: 内网 GD-CRM 三方营销日报全流程（取数窗口 → 区间基准 → 三方聚合 → HTML 报告），含唯一真值口径、定时任务执行 SOP、12 道交付门禁与 20+ 个已知坑。
+description: 内网 GD-CRM「三方营销」媒介日报：跑一键脚本取数、按区间报表唯一真值出单文件 HTML 趋势报告，自动接 data-analyst-pro 六阶分析生成 Pro 融合版，并做口径核对与假成功识别。当用户说「跑三方营销日报」「三方日报出数」「媒介日报」「网电咨询师媒介报表」「重出上月报告」「报告数字对不上」「CRM 可查区间」「出 Pro 版分析」时使用；也是每天 08:00 定时任务「三方营销日报」的执行入口，定时任务触发时按《每日定时任务执行 SOP》跑完整闭环。只适用于内网 192.168.16.138 的 GD-CRM，不适用于云客 CRM。
+summary: 内网 GD-CRM 三方营销日报全流程（取数窗口 → 区间基准 → 三方聚合 → HTML 报告 → pro 六阶分析融合版），含唯一真值口径、定时任务执行 SOP、12 道交付门禁与 20+ 个已知坑。
 type: data-report
 triggers:
   - 跑三方营销日报 / 三方日报出数
@@ -10,8 +10,9 @@ triggers:
   - 重出上月报告 / 月报重出
   - 报告数字对不上 / CRM 可查区间
   - 每日定时任务跑日报 / 定时执行三方日报 / 自动化跑日报
-version: "1.4"
-updated: "2026-11-11"
+  - 出 Pro 版分析 / 六阶分析 / 决策分析融合版 / 质量数据分析
+version: "1.5"
+updated: "2026-11-20"
 agent_created: true
 ---
 
@@ -32,6 +33,7 @@ agent_created: true
 | 一键入口 | `run_daily.py [YYYY-MM-DD]`（不带参数 = 昨天） |
 | 权威数据 | `data\analysis\sanfang.json`（合计）、`data\raw\range.xls` + `data\analysis\range_baseline.json`（区间报表真值） |
 | 交付报告 | `三方营销媒介分析报告.html`（主文件同名覆盖，`run_daily.py` 自动留档到 `history\`） |
+| Pro 分析层 | `da_pro_analysis.py` → `data\analysis\da_pro.json`；`gen_da_pro_fusion.py` → `三方营销_质量数据分析Pro_融合版.html`（独立文件，`Pro_{start}_{end}_` 前缀留档） |
 | 月报入口 | `gen_month.py [YYYY-MM]` → `三方营销媒介分析报告_YYYY年M月.html`（复用日报模板；`gen_oct.py` 仅为兼容壳） |
 | 内网 | `192.168.16.138`，账号密码在同目录 `config.local.json` |
 | 定时任务 | `三方营销日报`（id `e83f79a3-cfe0-4b95-9de2-bea94fae2514`，每天 08:00，ACTIVE）；**2026-11-07 起 prompt 改为「加载本 Skill 并按《每日定时任务执行 SOP》执行」，本 Skill 是执行逻辑的唯一真源** |
@@ -85,11 +87,13 @@ $r = Test-NetConnection -ComputerName 192.168.16.138 -Port 80 -WarningAction Sil
 "C:/Users/TJL/.workbuddy/binaries/python/envs/default/Scripts/python.exe" "C:/Users/TJL/WorkBuddy/2026-10-14-15-59-59/gd-crm-媒介日报/run_daily.py"
 ```
 约 1~8 分钟属正常，用后台运行并等结果，别中途当卡死杀掉。
+脚本在主报告之后会**自动接第 7、8 步 Pro 分析层**（`da_pro_analysis.py` + `gen_da_pro_fusion.py`），产出独立的 `三方营销_质量数据分析Pro_融合版.html`（不覆盖主报告）。这两步纯本地后处理、不联网；失败只告警，**不影响主报告成功判定**。
 
 **③ 判成功（最关键，防假成功）**
 - `analyze_sanfang.py` 必须打印 `建档 X | 来院 X | 成交 X 人 | 业绩 X 元` 累计行；
 - fetch_window / parse / baseline / analyze / gen 各步退出码为 0；
 - **没有累计行 = 分析崩了**，`gen_report` 仍可能拿旧 json 出一份「看起来成功」的 HTML → **判失败，不许沿用上一版报告**（10-24 空日 `KeyError: '建档量'` 踩过）。
+- Pro 层两步骤失败 ≠ 日报失败：日志会打 `[告警] Pro 分析层未生成/失败`，主报告照常交付；但要如实告知用户 Pro 版本次没出。
 
 **④ 取数汇报**（数字一律从 `data/analysis/sanfang.json` 现算，禁止手写常量）
 ```python
@@ -124,9 +128,39 @@ s  = d['daily_sum']; src = d['src_total']; emp = d['emp_total']   # 对账 / 媒
 3. `parse_daily.py` —— 单日 xls → json
 4. `build_range_baseline.py` —— 区间报表 → `range_baseline.json`（合计/媒介/咨询师/五档的**唯一真值**）
 5. `analyze_sanfang.py` —— 合并成 `sanfang.json`
-6. `gen_report_sanfang.py` —— 出 HTML + 自动留档快照
+6. `gen_report_sanfang.py` —— 出主报告 HTML + 自动留档快照
+7. `da_pro_analysis.py` —— data-analyst-pro 六阶分析：读 `sanfang.json` → `data/analysis/da_pro.json`（描述→对比→趋势→异常→因果→预测 + 防错溯源表 + 四维评分）
+8. `gen_da_pro_fusion.py` —— 把六阶分析融入主报告 → `三方营销_质量数据分析Pro_融合版.html`（独立文件，单独留档）
 
-四步（parse/base/analyze/gen）全绿才留档；否则 `archive_report()` 会跳过，避免把假成功版本存进历史。
+四步（parse/base/analyze/gen）全绿才留档；否则 `archive_report()` 会跳过，避免把假成功版本存进历史。第 7、8 步只在核心四步全绿后跑，纯本地后处理（复用主报告内联的 echarts 与 `const D`，不联网、不改主报告）。
+
+## Pro 六阶分析层（2026-11-20 新增，v1.5）
+
+**它是什么**：以 skill `data-analyst-pro`（质量数据分析）的方法论，对同一份 `sanfang.json` 做六阶深度分析，再融进主报告成为一个页面。借鉴自 skillhub `@user_8d26dabd/qclaw-data-analyst-pro`，**未安装该 skill**，只借方法论。
+
+**定位铁律（靓仔 2026-11-20 定）**：**01 核心结论管「是什么、怎么办」，Pro 层管「这个结论靠不靠谱、往哪走」**。Pro 层是**对 01 的复检 + 升级**，不是再分析一遍。审出并已消除 3 处重复：
+- 二次到院/老客转化（01 第4条）→ Pro 层不复述，改为**措辞复检**（01「复购比首诊更容易出单」是因果口吻，按 L2 纪律收敛为统计关联）+ 补三档对照；
+- 媒介两极分化（01 第5/6条）→ 压成一句佐证 + 锚点，不重摆第二套数字；
+- 建议 2/3 → 标「承接 01 · 升级」（发现来自 01，这里改成可验证动作）；建议 1 标「六阶新增」。
+
+**六阶内容**（全部从 `da_pro.json` 现算，禁止写死）：
+1. 描述统计——均值/中位数/标准差/IQR；**均值比中位数高 >20% 判右偏，核心汇报用中位数**（本窗口日业绩均值 50,165 vs 中位数 32,400，右偏 35.4% → 01 的「客单价 2.3 万」用的是均值，Pro 层纠偏）
+2. 对比分析——前后半段（程序按 `N//2` 自动切，19 天 = 前 9 后 10）+ 帕累托；**业绩对比要警惕单日尖峰撑盘**（本窗口后半含 11-15 的 16.1 万，剔除后涨幅从 +74% 缩到 +27%），看转化率/成交单数比看业绩稳
+3. 趋势发现——3 日移动平均判方向、二阶差分判速度、拐点标注；**不重画趋势图**（主报告 06 已有），只给文字结论 + 锚点
+4. 异常检测——3σ（|z|>2）+ IQR 双法交叉 + 业务核实（负额日＝退款冲账非错误；尖峰日＝真实 High day）
+5. 因果推断——**严格 L1~L6 语言纪律**：本数据只支持 L2 关联，绝不说「二次邀约导致成交」；标注混杂因素与「要验证因果需补 AB 测试」
+6. 预测建议——给 **80% 区间不给点值** + 三情景 + 假设 + 失效条件；每条建议带「基于发现 + 验证指标 + 急迫度」
++ 防错六步法溯源表（每个数字记来源文件/字段/逻辑）+ 三向核对 + 四维质量评分（准确性/深度/清晰度/决策可用性，满分 40）
+
+**去重标准**（沿用 data-analysis skill 的选图规范）：一问一图、表格能说清就别画、不重复造数据。**Pro 融合版零新增图**，全页仍只有主报告 7 张图；规模/环比/分层表用锚点指向 01/02，MA3 趋势图按标准砍掉。
+
+**文件与留档**：`data/analysis/da_pro.json`（中间量，可复现）、`三方营销_质量数据分析Pro_融合版.html`（交付）。主报告 md5 不受影响；Pro 版留档前缀 `Pro_{start}_{end}_`。
+
+**重跑 Pro 版（不联网、不动主报告）**：
+```bash
+cd "C:/Users/TJL/WorkBuddy/2026-10-14-15-59-59/gd-crm-媒介日报"
+"…python.exe" da_pro_analysis.py && "…python.exe" gen_da_pro_fusion.py
+```
 
 ## 口径铁律（违反必出错）
 
@@ -165,6 +199,7 @@ s  = d['daily_sum']; src = d['src_total']; emp = d['emp_total']   # 对账 / 媒
 11. **五档相加对不上时不许「修平」**：区间合计按人去重，会出现「首次+二次 > 新客」「新客+老客 ≠ 总人数」1~2 人的差（10 月实测 169 vs 154、185 vs 184）。`id_note()` 会在 03 表下自动解释原因；看规模一律用「总人数」列，别改数字去凑恒等式。
 
 12. **新老客业绩与客单价**（2026-11-11 靓仔提）：01 核心结论单列一条「新老客业绩与客单价」，02 速览的「昨日业绩」「N 天业绩」两张卡也要拆 `新客 X 元 · 客单价 A` / `老客 Y 元 · 客单价 B`。口径：客单价 = 该档 `金额_新客` / `金额_老客` ÷ 该档 `成交_新客` / `成交_老客`，从 `window_totals` 与 `total_trend[最新日]` 现算；**该档成交人数为 0 时不计算，显示「—」**并附「0 人成交，客单价不适用」提示（2026-11-10 实测：全天 0 成交、金额 -22,300 全是退款冲账）；区间按人去重会让「新客 + 老客」比「总人数」多 1~2 人，结论须注明差额且客单价按各档自身分母算。改完跑 `check_group_hl.py`、`check_charts.py` 与全文数字体检，绿了才同步 `runtime/` 并发布。
+13. **Pro 六阶版**（2026-11-20 新增）：`三方营销_质量数据分析Pro_融合版.html` 生成后核对——① 主报告 11 节锚点 s01~s11 完整、主报告 md5 未被改动；② 全页仍 7 图、**零新增图**（MA3 趋势图按标准砍掉）；③ 六阶 6 节 + 溯源表 + 四维评分齐全；④ 与 01 的 3 处重复已按「复检 + 升级」处理（核心结论不复述二次到院、帕累托压成一句佐证、建议标承接标签）；⑤ 数字全从 `da_pro.json` 现算，因果语言不越级（只报 L2 关联）。playwright 实测无 JS 错误、逐屏截图核对版式。
 
 ## 已知坑速查
 
@@ -212,4 +247,4 @@ s  = d['daily_sum']; src = d['src_total']; emp = d['emp_total']   # 对账 / 媒
 - **定时任务**：`三方营销日报`（id `e83f79a3-cfe0-4b95-9de2-bea94fae2514`，每天 08:00，ACTIVE）的 prompt 只负责「加载本 Skill 并按《每日定时任务执行 SOP》执行」+ 最小兜底禁令。**改执行逻辑、汇报格式、口径只需改本文件一处**，不要再回去堆长 prompt；改完记得复核 `automation_update mode=view` 与账本 SK-096 版本。
 - 权威项目级记忆：`C:\Users\TJL\WorkBuddy\2026-10-14-15-59-59\.workbuddy\memory\MEMORY.md`（8 节）；首轮全过程在 `2026-10-14.md`。
 - 下游：`weekly-report-fill` 消费 `sanfang.json` 的 `window_totals / total_trend / daily_sum / crm_segment / src_total / emp_total / dates / window`。
-- 资产账本：`C:\Users\TJL\WorkBuddy\2026-08-27-11-13-14\SKILLS-INDEX.md` 编号 **SK-096**（v1.4 / 2026-11-11）。
+- 资产账本：`C:\Users\TJL\WorkBuddy\2026-08-27-11-13-14\SKILLS-INDEX.md` 编号 **SK-096**（v1.5 / 2026-11-20，新增 Pro 六阶分析层）。
