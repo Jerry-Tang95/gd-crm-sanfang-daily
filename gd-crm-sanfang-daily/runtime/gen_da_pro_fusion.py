@@ -22,6 +22,27 @@ meta=O['meta']; st1=O['stage1']; st2=O['stage2']; st3=O['stage3']; st4=O['stage4
 st5=O['stage5']; st6=O['stage6']; q=O['quality']; c=st1['central']; ds=st1['dispersion']
 sc=st1['skew_check']; mom=st2['环比']; hf=st2['前后半段']; hz=st2['横向']
 
+def trend_ui(word):
+    """方向词 → (词, 箭头, 颜色)：全部从 da_pro.json 现算，禁止写死升降。"""
+    if '降' in word: return (word, '↘', '#f04438')
+    if '升' in word: return (word, '↗', '#12b76a')
+    return (word, '→', '#5b6478')
+
+def hf_phrase():
+    """前后半段对照句：按成交/业绩方向现算，避免写死「单子变少」之类。"""
+    b, a = hf['前半'], hf['后半']
+    dj = a['成交'] - b['成交']; dy = a['业绩'] - b['业绩']
+    head = (f"后半 {n(a['成交'])} 单 vs 前半 {n(b['成交'])} 单、"
+            f"业绩 {wan(a['业绩'])} vs {wan(b['业绩'])}，"
+            f"转化率 {b['转化率']}%→{a['转化率']}%")
+    if dj > 0 and dy > 0: return head + '，量效齐升'
+    if dj < 0 and dy > 0: return head + '，靠客单价拉动'
+    if dj > 0 and dy < 0: return head + '，客单价下滑'
+    return head + '，量价齐降'
+
+d_word, d_arrow, d_color = trend_ui(st3['方向']['成交'])
+a_word, a_arrow, a_color = trend_ui(st3['方向']['业绩'])
+
 # 1. 加锚点
 for num in ['01','02','03','04','05','06','07','08','09','10','11']:
     src = src.replace('<h2><span class="n">'+num+'', f'<h2 id="s{num}"><span class="n">'+num+'"',1)
@@ -72,8 +93,8 @@ LAYER=f'''
     <div class="note" style="font-size:14px;line-height:1.75">__SUMMARY__</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-top:12px" class="pro-kpi">
       <div class="pk"><div class="pl">业绩（中位数/日）</div><div class="pv">__MED__</div><div class="pd">右偏，均值 __MEAN__ 仅参考</div></div>
-      <div class="pk"><div class="pl">成交趋势</div><div class="pv" style="color:#f04438">下降 ↘</div><div class="pd">MA3 __D0__→__D1__ 人/日</div></div>
-      <div class="pk"><div class="pl">业绩趋势</div><div class="pv" style="color:#12b76a">上升 ↗</div><div class="pd">__A0__→__A1__/日</div></div>
+      <div class="pk"><div class="pl">成交趋势</div><div class="pv" style="color:{d_color}">{d_word} {d_arrow}</div><div class="pd">MA3 __D0__→__D1__ 人/日</div></div>
+      <div class="pk"><div class="pl">业绩趋势</div><div class="pv" style="color:{a_color}">{a_word} {a_arrow}</div><div class="pd">__A0__→__A1__/日</div></div>
       <div class="pk"><div class="pl">质量自评</div><div class="pv" style="color:#12b76a">__QSCORE__<span style="font-size:12px">/40</span></div><div class="pd">__QRATE__</div></div>
     </div>
     <div class="note" style="font-size:12px;margin-top:10px"><b>不重复：</b>规模四项见 <a href="#s01">01</a>（录单 {n(st1['scale']['录单'])} / 来院 {n(st1['scale']['来院'])} / 成交 {n(st1['scale']['成交'])} / 业绩 {wan(st1['scale']['业绩'])}），此处只放原报告没有的推断性指标。</div>
@@ -100,10 +121,10 @@ LAYER=f'''
         <tr><td class="k">成交单数</td><td>{n(hf['前半']['成交'])}</td><td>{n(hf['后半']['成交'])}</td></tr>
         <tr><td class="k">业绩</td><td>{wan(hf['前半']['业绩'])}</td><td>{wan(hf['后半']['业绩'])}</td></tr>
         <tr><td class="k">转化率</td><td>{hf['前半']['转化率']}%</td><td>{hf['后半']['转化率']}%</td></tr></tbody></table>
-        <div class="note" style="font-size:12px">成交少、业绩多 → 靠客单价拉动，非量增。</div>
+        <div class="note" style="font-size:12px">__HF_NOTE__</div>
       </div>
       <div><b style="font-size:13.5px">横向结构（帕累托）</b>
-        <div class="note" style="font-size:12.8px;margin-top:8px"><b>去重：</b>「媒介两极分化」01 已下结论（见 <a href="#s01">01 第 5、6 条</a>：前三名录单 43% 只成交 7 人、TOP3 撑 44% 业绩），此处<b>不重摆第二套数字</b>。补一个 01 没给的量级：<b>{hz['帕累托媒介数']} 个媒介（{hz['帕累托占比']}%）贡献 {hz['帕累托业绩占比']}% 业绩、{hz['零成交媒介数']} 个媒介零成交占 {hz['零成交录单占比']}% 录单</b>——作为"集中度"的量化佐证，不是新结论。</div>
+        <div class="note" style="font-size:12.8px;margin-top:8px"><b>去重：</b>「媒介两极分化」01 已下结论（见 <a href="#s01">01 第 5、6 条</a>：前三名录单 {hz['TOP3录单占比']}% 只成交 {hz['TOP3录单成交数']} 人、TOP3 撑 {hz['TOP3业绩占比']}% 业绩），此处<b>不重摆第二套数字</b>。补一个 01 没给的量级：<b>{hz['帕累托媒介数']} 个媒介（{hz['帕累托占比']}%）贡献 {hz['帕累托业绩占比']}% 业绩、{hz['零成交媒介数']} 个媒介零成交占 {hz['零成交录单占比']}% 录单</b>——作为"集中度"的量化佐证，不是新结论。</div>
         <div class="note" style="font-size:12.3px">完整排行见 <a href="#s04">04</a> / <a href="#s08">08</a>。</div>
       </div>
     </div>
@@ -114,11 +135,11 @@ LAYER=f'''
     <div class="note" style="font-size:12.3px;margin-bottom:10px"><b>去重：</b>趋势图已在 <a href="#s06">06</a>（含逐日柱线）。按 Pro「一问一图、表格能说清就别画图」，此处<b>不重画 MA3 曲线</b>，只给移动平均消噪后的文字结论。</div>
     <div class="split">
       <div><ul class="ins">
-        <li><b>方向（3日移动平均）：</b>成交 <b style="color:#f04438">下降</b>（MA3 {n(st3['方向']['成交MA3首末'][0])}→{n(st3['方向']['成交MA3首末'][1])}）；业绩 <b style="color:#12b76a">上升</b>（{wan(st3['方向']['业绩MA3首末'][0])}→{wan(st3['方向']['业绩MA3首末'][1])}）。</li>
+        <li><b>方向（3日移动平均）：</b>成交 <b style="color:{d_color}">{d_word}</b>（MA3 {n(st3['方向']['成交MA3首末'][0])}→{n(st3['方向']['成交MA3首末'][1])}）；业绩 <b style="color:{a_color}">{a_word}</b>（{wan(st3['方向']['业绩MA3首末'][0])}→{wan(st3['方向']['业绩MA3首末'][1])}）。</li>
         <li><b>速度：</b>日均成交较前半 <b>{sgn(st3['速度']['后半较前半日均成交变化pct'])}</b>（{st3['速度']['解读']}）。</li>
         <li><b>拐点：</b>{pivots}。</li>
       </ul></div>
-      <div class="note" style="font-size:13px"><b>🔍 关键背离：</b>单子变少、单价变高。后半段业绩 {wan(hf['后半']['业绩'])} 高于前半 {wan(hf['前半']['业绩'])}，但成交单数 {n(hf['后半']['成交'])} &lt; {n(hf['前半']['成交'])}。<br><br><b>季节性：</b>{st3['季节性']}。<br><br><b>驱动：</b>量 {st3['驱动拆分']['量贡献']}，效率 {st3['驱动拆分']['成交效率贡献']}。</div>
+      <div class="note" style="font-size:13px"><b>🔍 量效对照：</b>__HF_NOTE__。<br><br><b>季节性：</b>{st3['季节性']}。<br><br><b>驱动：</b>量 {st3['驱动拆分']['量贡献']}，效率 {st3['驱动拆分']['成交效率贡献']}。</div>
     </div>
   </div>
 
@@ -172,13 +193,15 @@ LAYER=f'''
 chain=''.join(f"<span style='background:rgba(255,255,255,.16);border-radius:8px;padding:4px 10px;font-size:12px'>{x}</span>" for x in ['①源审阅','②溯源表','③只提取一次','④自洽验证','⑤三向核对','⑥交付锁定'])
 
 summary=(f"<b>本层不复述 01 的结论</b>（规模/结构/媒介表现见 <a href='#s01'>01</a>），只给 01 没有的 5 条复检结果："
-  f"① <b>口径纠偏</b>：01 的「客单价 2.3 万」用的是均值，实际右偏 {sc['均值中位数差pct']}%，核心汇报应改用<b>中位数 {money(c['日业绩中位数'])}</b>；"
-  f"② <b>趋势背离</b>（01 无时间判断）：成交降（MA3 {n(st3['方向']['成交MA3首末'][0])}→{n(st3['方向']['成交MA3首末'][1])}）业绩升（{wan(st3['方向']['业绩MA3首末'][0])}→{wan(st3['方向']['业绩MA3首末'][1])}），靠客单价；"
-  f"③ <b>异常标注</b>：负额日经核实是退款冲账、11-15 是正向尖峰；"
+  f"① <b>口径纠偏</b>：01 的「客单价 {wan(st1['scale']['业绩']/st1['scale']['成交'])}」用的是均值，实际右偏 {sc['均值中位数差pct']}%，核心汇报应改用<b>中位数 {money(c['日业绩中位数'])}</b>；"
+  f"② <b>趋势对照</b>（01 无时间判断）：成交{d_word}（MA3 {n(st3['方向']['成交MA3首末'][0])}→{n(st3['方向']['成交MA3首末'][1])}）业绩{a_word}（{wan(st3['方向']['业绩MA3首末'][0])}→{wan(st3['方向']['业绩MA3首末'][1])}）；{hf_phrase()}；"
+  f"③ <b>异常标注</b>：负额日经核实是退款冲账、__POS_DAY__ 是正向尖峰；"
   f"④ <b>措辞收敛</b>：01「复购比首诊更容易出单」是因果口吻，按 L2 纪律应改为统计关联（见第五阶）；"
   f"⑤ <b>区间预测</b>：未来 7 天日均成交 {st6['预测']['80%区间'][0]}~{st6['预测']['80%区间'][1]} 人（01 无预测）。")
 
-rep=dict(CHAIN=chain,SUMMARY=summary,MED=wan(c['日业绩中位数']),MEAN=wan(c['日业绩均值']),
+pos_spike=[a for a in st4['异常清单'] if '3σ(z>2)' in a['方法'] and a['业绩']>0]
+pos_day=(pos_spike[0]['date'][5:]) if pos_spike else '本窗口无 3σ 正向尖峰'
+rep=dict(CHAIN=chain,SUMMARY=summary,HF_NOTE=hf_phrase(),POS_DAY=pos_day,MED=wan(c['日业绩中位数']),MEAN=wan(c['日业绩均值']),
   D0=n(st3['方向']['成交MA3首末'][0]),D1=n(st3['方向']['成交MA3首末'][1]),
   A0=wan(st3['方向']['业绩MA3首末'][0]),A1=wan(st3['方向']['业绩MA3首末'][1]),
   QSCORE=str(q['总分']),QRATE=q['评级'])
