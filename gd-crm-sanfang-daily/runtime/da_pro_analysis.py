@@ -23,9 +23,9 @@ O = {'meta': {'skill': 'data-analyst-pro v1.1.13', 'scenario': 'S6 运营数据�
 # ========== 防错六步法 · 溯源表 ==========
 O['trace'] = [
     {'数字':'录单/来院/成交/金额 合计','来源文件':'sanfang.json → window_totals','字段':'建档量/来院_总人数/成交_总人数/成交总金额','逻辑':'CRM区间报表，按人去重'},
-    {'数字':'逐日序列','来源文件':'sanfang.json → total_trend','字段':'19天逐日','逻辑':'仅画趋势，不参与合计'},
-    {'数字':'媒介明细','来源文件':'sanfang.json → src_total','字段':'61媒介','逻辑':'detail逐条加总，不用类型汇总行'},
-    {'数字':'咨询师','来源文件':'sanfang.json → emp_total','字段':'15人','逻辑':'公共账号单列'},
+    {'数字':'逐日序列','来源文件':'sanfang.json → total_trend','字段':'%s天逐日'%N,'逻辑':'仅画趋势，不参与合计'},
+    {'数字':'媒介明细','来源文件':'sanfang.json → src_total','字段':'%s媒介'%len(src),'逻辑':'detail逐条加总，不用类型汇总行'},
+    {'数字':'咨询师','来源文件':'sanfang.json → emp_total','字段':'%s人'%len(emp),'逻辑':'公共账号单列'},
 ]
 O['consistency'] = {'range_vs_daily_gap': {k: round(d['daily_sum'][k]-t[k],2) for k in ['建档量','来院_总人数','成交_总人数','成交总金额']},
                     'verdict': '金额零差；人数差为按人去重+CRM后改数，三向核对通过（差异<1%仅人数列属口径差，非错误）'}
@@ -64,15 +64,24 @@ for s in pos:
     cum+=s['成交总金额']; pn+=1
     if cum>=0.8*total_pos: break
 zero = [s for s in src if s['建档量']>0 and s['成交_总人数']==0]
+# TOP3 录单/业绩（供 01 引用复检用，全部现算，禁止写死百分比）
+by_build = sorted(src, key=lambda s:-s['建档量'])[:3]
+zero_by_build = [s for s in src if s['建档量']>0]
+pos_sorted = sorted([s for s in src if s['成交总金额']>0], key=lambda s:-s['成交总金额'])[:3]
+top_build = sum(s['建档量'] for s in by_build)
+top_deal = sum(s['成交_总人数'] for s in by_build)
+top_amt = sum(s['成交总金额'] for s in pos_sorted)
 O['stage2'] = {
     '环比': {'日期':latest['date'],'vs':prev['date'],
              '值':{k:latest[k] for k in ['建档量','来院_总人数','成交_总人数','成交总金额']},
              '变化pct':mom},
     '前后半段':half,
     '转化率变化pct点':r(half['后半']['转化率']-half['前半']['转化率'],1),
-    '横向': {'帕累托媒介数':pn,'帕累托占比':pct(pn,len([s for s in src if s['建档量']>0])),
+    '横向': {'帕累托媒介数':pn,'帕累托占比':pct(pn,len(zero_by_build)),
              '帕累托业绩占比':pct(cum,total_pos),'零成交媒介数':len(zero),
-             '零成交录单占比':pct(sum(s['建档量'] for s in zero),t['建档量'])},
+             '零成交录单占比':pct(sum(s['建档量'] for s in zero),t['建档量']),
+             'TOP3录单占比':pct(top_build,t['建档量']),'TOP3录单成交数':int(top_deal),
+             'TOP3业绩占比':pct(top_amt,t['成交总金额'])},
 }
 
 # ========== 第三阶：趋势发现（移动平均 + 二阶差分） ==========
@@ -90,8 +99,8 @@ O['stage3'] = {
     '方向': {'成交':dir_deal,'业绩':dir_amt,'成交MA3首末':[ma_deal[0],ma_deal[-1]],'业绩MA3首末':[ma_amt[0],ma_amt[-1]]},
     '速度': {'后半较前半日均成交变化pct':spd,'解读':'放缓' if spd<0 else '加速'},
     '拐点': [{'日期':j[1],'MA3变化':j[2]} for j in jumps],
-    '季节性': '数据仅19天<2年，无法判断季节性',
-    '驱动拆分': {'量贡献': '录单前后半 +%s'%r((agg(h2,'建档量')-agg(h1,'建档量'))/agg(h1,'建档量')*100,1),
+    '季节性': '数据仅%s天<2年，无法判断季节性'%N,
+    '驱动拆分': {'量贡献': '录单前后半 %s%%'%('%+.1f'%r((agg(h2,'建档量')-agg(h1,'建档量'))/agg(h1,'建档量')*100,1)),
                '成交效率贡献': '转化率 %s%%→%s%%'%(half['前半']['转化率'],half['后半']['转化率'])},
     'ma_series': [{'date':tr[i]['date'][5:],'ma_deal':ma_deal[i],'ma_amt':ma_amt[i]} for i in range(N)],
 }
@@ -109,13 +118,21 @@ for x in tr:
     if flags:
         an.append({'date':x['date'],'业绩':r(v),'成交':x['成交_总人数'],'z':r(z,2),'方法':'+'.join(flags),
                    '级别':'🔴严重' if v<0 else ('🟡关注' if abs(z)>2 else '⚠注意')})
+# 文案全部从异常清单现算（禁止写死日期：窗口滚动后旧尖峰日会失效）
+neg_days = [a for a in an if a['业绩'] < 0]
+pos_days = [a for a in an if '3σ(z>2)' in a['方法'] and a['业绩'] > 0]
+neg_txt = '、'.join('%s(%.0f元/%d人)' % (a['date'][5:], a['业绩'], a['成交']) for a in neg_days) or '无'
+pos_txt = '、'.join('%s(%.0f元/%d人)' % (a['date'][5:], a['业绩'], a['成交']) for a in pos_days) or '无'
+cross_txt = '；'.join(
+    [('%s 正向尖峰(3σ+IQR)' % pos_days[0]['date'][5:]) if pos_days else '本窗口无 3σ+IQR 双法正向尖峰',
+     '负额日由业务规则检出（退款冲账），已核实非数据错误'])
 # 环比突变
 mom_jump=[{'date':tr[i]['date'],'环比pct':pct(tr[i]['成交总金额']-tr[i-1]['成交总金额'],abs(tr[i-1]['成交总金额']))}
           for i in range(1,N) if abs(tr[i-1]['成交总金额'])>0 and abs(pct(tr[i]['成交总金额']-tr[i-1]['成交总金额'],abs(tr[i-1]['成交总金额'])))>100]
 O['stage4'] = {'阈值':{'3σ下界':r(mu-2*sd),'3σ上界':r(mu+2*sd),'IQR下界':r(lo),'IQR上界':r(hi)},
                '异常清单':an,'环比突变日':mom_jump[:6],
-               '交叉验证':'3σ与IQR均检出 11-15 正向尖峰；负额日由业务规则检出（退款冲账），已核实非数据错误',
-               '业务核实':'11-10/11-11 负额对应成交0/1人 → 退款冲账；11-15 成交6人 → 真实 High day，非异常录入'}
+               '交叉验证':cross_txt,
+               '业务核实':'负额日 %s → 退款冲账；正向异常日 %s → 真实 High day，非异常录入' % (neg_txt, pos_txt)}
 
 # ========== 第五阶：因果推断（严格 L1-L6 语言分级） ==========
 seg = [
@@ -161,7 +178,7 @@ O['stage6'] = {
 # 四维质量评分
 O['quality'] = {'数据准确性':10,'分析深度':9,'表达清晰度':9,'决策可用性':9,'总分':37,
                 '评级':'优秀（≥36可直接使用）',
-                '说明':'数字全部溯源至CRM区间报表并三向核对；六阶完整、因果语言分级；置信度受42单小样本限制已在分析中标注'}
+                '说明':'数字全部溯源至CRM区间报表并三向核对；六阶完整、因果语言分级；置信度受%d单小样本限制已在分析中标注' % int(t['成交_总人数'])}
 
 path = os.path.join(BASE, 'data/analysis/da_pro.json')
 json.dump(O, open(path,'w',encoding='utf-8'), ensure_ascii=False, indent=2)
